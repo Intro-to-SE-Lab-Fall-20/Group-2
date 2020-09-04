@@ -19,6 +19,3 @@ a user should be able to:
   -compose, edit, and send an email to other users.  
   -search and forward emails to other users.  
   -send attachments along with an email.  
-
-
-
