@@ -1,5 +1,4 @@
 # Group-2  
-This is the superior branch!  
 Intro to SE Lab Group 2  
 Group name: TBD  
 Sheldon Waid, GitHub user: Swaid-design.  
