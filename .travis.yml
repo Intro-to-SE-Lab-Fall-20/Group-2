@@ -5,4 +5,4 @@ cache: pip
 install:
   - pip install PySide2
 script:
-  - python main.py
+  - python test.py
