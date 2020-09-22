@@ -6,7 +6,6 @@ import os
 from PySide2.QtWidgets import QApplication, QWidget
 from PySide2.QtCore import QFile
 from PySide2.QtUiTools import QUiLoader
-import PySide2
 
 
 class LoginWindow(QWidget):
@@ -16,7 +15,7 @@ class LoginWindow(QWidget):
 
     def load_ui(self):
         loader = QUiLoader()
-        path = os.path.join(os.path.dirname(__file__), "form.ui")
+        path = os.path.join(os.path.dirname(__file__), "login.ui")
         ui_file = QFile(path)
         ui_file.open(QFile.ReadOnly)
         loader.load(ui_file, self)
