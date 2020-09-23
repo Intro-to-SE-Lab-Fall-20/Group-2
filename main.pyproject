@@ -1,3 +1,3 @@
 {
-    "files": ["main.py","login.ui","inbox.ui"]
+    "files": ["login.ui","main.py","inbox.ui","compose.ui","newAccount.ui"]
 }

@@ -15,7 +15,7 @@ class LoginWindow(QWidget):
 
     def load_ui(self):
         loader = QUiLoader()
-        path = os.path.join(os.path.dirname(__file__), "login.ui")
+        path = os.path.join(os.path.dirname(__file__), "compose.ui")
         ui_file = QFile(path)
         ui_file.open(QFile.ReadOnly)
         loader.load(ui_file, self)
