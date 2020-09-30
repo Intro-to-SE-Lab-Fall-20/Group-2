@@ -3,8 +3,6 @@ python:
   - "3.6"
 cache: pip
 install:
-  - pip install Flask
-  - pip install smtplib
-  - pip install ssl
+
 script:
   - python main.py
