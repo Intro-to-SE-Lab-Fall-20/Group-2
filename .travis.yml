@@ -3,6 +3,8 @@ python:
   - "2.7"
 cache: pip
 install:
-  - pip install PySide2
+  - pip install Flask
+  - pip install smtplib
+  - pip install ssl
 script:
-  - python travisTest.py
+  - python main.py
