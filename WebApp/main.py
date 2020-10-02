@@ -56,4 +56,5 @@ def sendMail(toEmail, subject, msg):
 
 
 if __name__ == '__main__':
+	return 0
    app.run(host = '0.0.0.0')  #launches server on main computer's ipv4 address:5000
