@@ -4,4 +4,4 @@ python:
   - "2.7"
 
 script:
-  - python WebApp/main.py
+  - python WebApp/maintest.py
