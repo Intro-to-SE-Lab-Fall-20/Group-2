@@ -26,3 +26,5 @@ body.send_keys("Test body")
 
 send = driver.find_element_by_xpath("/html/body/form/button")
 send.click()
+
+print("done")
