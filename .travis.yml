@@ -7,7 +7,4 @@ install:
   - pip install flask
 
 script:
-  - python WebApp/main.py
-  
- deploy:
- - deploy python WebApp/travisCITest.py
+  - python WebApp/main.py && WebApp/travisCITest.py
