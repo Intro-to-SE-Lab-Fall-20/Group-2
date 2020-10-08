@@ -7,7 +7,7 @@ install:
   - pip install flask
   
 before_script:
-  - python WebApp/travisCITest.py
+  - python WebApp/main.py
 
 script:
   - WebApp/travisCITest.py
