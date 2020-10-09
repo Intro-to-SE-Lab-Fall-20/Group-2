@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, redirect # local hosting
 import smtplib, ssl # server library
 import imghdr
 from email.message import EmailMessage
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -9,38 +10,36 @@ emailport = 465 #Gmail port
 context = ssl.create_default_context()
 
 
-def travisTest():
+def travisTest(): # sends email to itself to verify it works (for travis CI)
+    print("Sending test email")
     newMessage = EmailMessage()
-    newMessage['To'] = "elichartnett@gmail.com"
-    newMessage['Subject'] = "subject"
-    newMessage['From'] = "group2emailclient@gmail.com"
-    newMessage.set_content("test body")
-
+    newMessage['To'] = "group2emailclient@gmail.com"
+    newMessage['Subject'] = "SERVER STARTED"
+    newMessage['From'] = "Group 2"
+    newMessage.set_content("Group 2 email server has started at " + str(datetime.now()))
     sendEmail(newMessage, "group2emailclient@gmail.com", "Group2Test")
 
 
 # Web Pages - first pages are commented, the rest follow similar functionality
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    travisTest()
-
-    if request.method == 'POST':  #when form is submitted, it collects the data and authenticates
+    if request.method == 'POST': #when form is submitted, it collects the data and authenticates
         global userEmail, userPassword
-        userEmail = request.form['email']  #requests the object with name 'email'
-        userPassword = request.form['password']  #requests the object with name 'password'
+        userEmail = request.form['email'] #requests the object with name 'email'
+        userPassword = request.form['password'] #requests the object with name 'password'
         authenticate()  # check creds
-        return redirect('/inbox')  #after login, go to inbox
+        return redirect('/inbox') #after login, go to inbox
 
     else:
-        return render_template('login.html')  #renders login.html until form is submitted
+        return render_template('login.html') #renders login.html until form is submitted
 
 @app.route('/inbox', methods=['POST', 'GET'])
 def inbox():
-    if request.method == 'POST':  #when form is submitted, it performs the only action (going to send an email)
+    if request.method == 'POST': #when form is submitted, it performs the only action (going to send an email)
         return redirect('/sendmail')
 
     else:
-        return render_template('inbox.html')  #renders inbox.html until form is submitted
+        return render_template('inbox.html') #renders inbox.html until form is submitted
 
 @app.route('/sendmail', methods=['GET', 'POST'])
 def sendMail():
@@ -83,4 +82,5 @@ def sendEmail(newMessage, userEmail, userPassword):
 
 #starting web app
 if __name__ == '__main__':
+    travisTest()
     app.run(host = '0.0.0.0')  # Launches server on main computer's ipv4 address:5000
