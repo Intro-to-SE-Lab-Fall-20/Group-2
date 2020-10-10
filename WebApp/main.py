@@ -57,6 +57,7 @@ def inbox():
         return redirect('/sendmail')
 
     else:
+        loadInbox()
         return render_template('inbox.html')  # renders inbox.html until form is submitted
 
 
@@ -92,8 +93,70 @@ def authenticate():
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
 
+def loadInbox():
+    htmlFile = open("templates/inbox.html", 'w')
+    htmlFile.write(
+"<!doctype html>\n"
+"<html lang=\"en\">\n"
+  "<head>\n"
 
-def sendEmail(newMessage, userEmail, userPassword):
+    "<meta charset=\"utf-8\">\n"
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">\n"
+    
+    "<title>Email Client</title>\n"
+
+    "<!-- Bootstrap core CSS -->\n"
+    "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
+
+"<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
+
+  "</head>\n"
+  "<body class=\"text-center\">\n"
+    "<div class=\"container\">\n"
+      "<h1>Inbox</h1>\n"
+      "<table class=\"table\">\n"
+  "<thead class=\"thead-dark\">\n"
+    "<tr>\n"
+      "<th scope=\"col\">Sender</th>\n"
+      "<th scope=\"col\">Subject</th>\n"
+      "<th scope=\"col\">Time</th>\n"
+    "</tr>\n"
+  "</thead>\n"
+  "<tbody>\n")
+    htmlFile.close()
+
+    Mailbox = poplib.POP3_SSL('pop.googlemail.com', '995')
+    userEmail = "group2emailclient@gmail.com"
+    userPassword = "Group2Test"
+    Mailbox.user(userEmail)
+    Mailbox.pass_(userPassword)
+    numEmails = Mailbox.list()[1]
+    htmlFile = open("templates/inbox.html", 'a')
+    for email in numEmails:
+        htmlFile.write(
+            "<tr>\n"
+            "<td>sender1</td>\n" #sender here
+            "<td>subject1</td>\n" #subect here
+            "<td>time1</td>\n" #time
+            "<tr>\n")
+    htmlFile.close()
+
+    htmlFile = open("templates/inbox.html", 'a')
+    htmlFile.write(
+    "</tr>\n"
+  "</tbody>\n"
+"</table>\n"
+
+"<table class=\"table\">\n"
+  "<form action=\"sendmail\">\n"
+      "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Send mail</button>\n"
+    "</form>\n"
+    "</div>\n"
+  "</body>\n"
+"</html>\n")
+
+
+def sendEmail(newMessage):
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)
         server.send_message(newMessage)
@@ -102,7 +165,7 @@ def sendEmail(newMessage, userEmail, userPassword):
 
 # starting web app
 if __name__ == '__main__':
-    if str(sys.argv[1]) == "travisTest":
+    if len(sys.argv) == 2 and str(sys.argv[1]) == "travisTest":
         travisTest()
 
-    app.run(host='0.0.0.0')  # Launches server on main computer's ipv4 address:5000
+    app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
