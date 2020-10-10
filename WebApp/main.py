@@ -4,7 +4,7 @@ import imghdr  # attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import poplib  # inbox
-import email
+import sys
 
 app = Flask(__name__)
 emailport = 465  # Gmail port
@@ -20,7 +20,8 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     newMessage['Subject'] = "1 SERVER STARTED"
     newMessage['From'] = "Group 2"
     time = datetime.now()
-    newMessage.set_content("Group 2 email server has started at " + str(time))
+    time = str(time)
+    newMessage.set_content("Group 2 email server has started at " + time)
     sendEmail(newMessage, userName, password)
 
     print("Checking if test email was received...")
@@ -28,13 +29,12 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     Mailbox.user(userName)
     Mailbox.pass_(password)
 
-    numMessages = len(Mailbox.list()[1])
-
-    for i in range(numMessages):
-        for j in Mailbox.retr(i+1)[1]:
-            print(Mailbox.retr(i+1)[1][16]) 
+    lastReceivedEmailTime = Mailbox.retr(1)[1][16] # metadata of email on what time it was sent
+    if str(time) in str(lastReceivedEmailTime): # checking if times match up
+        print("Server/function test finished. Ready to go live")
 
     Mailbox.quit()
+    exit()
 
 
 # Web Pages - first pages are commented, the rest follow similar functionality
@@ -102,5 +102,7 @@ def sendEmail(newMessage, userEmail, userPassword):
 
 # starting web app
 if __name__ == '__main__':
-    travisTest()
+    if str(sys.argv[1]) == "travisTest":
+        travisTest()
+
     app.run(host='0.0.0.0')  # Launches server on main computer's ipv4 address:5000
