@@ -10,28 +10,31 @@ app = Flask(__name__)
 emailport = 465  # Gmail port
 context = ssl.create_default_context()
 
-
 def travisTest():  # sends email to itself to verify it works (for travis CI)
-    print("Sending test email...")
-    userName = "group2emailclient@gmail.com"
-    password = "Group2Test"
+    print("Sending test email...") # setting up email
+    userEmail = "group2emailclient@gmail.com"
+    userPassword = "Group2Test"
     newMessage = EmailMessage()
-    newMessage['To'] = "group2emailclient@gmail.com"
+    newMessage['To'] = userEmail
     newMessage['Subject'] = "1 SERVER STARTED"
     newMessage['From'] = "Group 2"
     time = datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
-    sendEmail(newMessage)
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server: # sending email
+        server.login(userEmail, userPassword)
+        server.send_message(newMessage)
 
     print("Checking if test email was received...")
     Mailbox = poplib.POP3_SSL('pop.googlemail.com', '995')
-    Mailbox.user(userName)
-    Mailbox.pass_(password)
+    Mailbox.user(userEmail) # logging into account to check inbox
+    Mailbox.pass_(userPassword)
 
-    lastReceivedEmailTime = Mailbox.retr(1)[1][16] # metadata of email on what time it was sent
+    numMessages = len(Mailbox.list()[1])
+    lastReceivedEmailTime = Mailbox.retr(numMessages)[1][16] # metadata of email on what time it was sent
     if str(time) in str(lastReceivedEmailTime): # checking if times match up
-        print("Server/function test finished. Ready to go live")
+        print("Server/function test finished. Everything appears to work as expected.") # if so, other code should work
 
     Mailbox.quit()
     exit()
@@ -41,9 +44,14 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':  # when form is submitted, it collects the data and authenticates
-        global userEmail, userPassword
         userEmail = request.form['email']  # requests the object with name 'email'
         userPassword = request.form['password']  # requests the object with name 'password'
+
+        userInfoFile = open("userCredentials.txt", 'w') # saving credentials for later use
+        userInfoFile.write(userEmail + "\n")
+        userInfoFile.write(userPassword + "\n")
+        userInfoFile.close()
+
         authenticate()  # check creds
         return redirect('/inbox')  # after login, go to inbox
 
@@ -63,6 +71,11 @@ def inbox():
 
 @app.route('/sendmail', methods=['GET', 'POST'])
 def sendMail():
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userInfoFile.close()
+
     if request.method == 'POST':
         newMessage = EmailMessage()
         newMessage['To'] = request.form['toemail']
@@ -90,10 +103,20 @@ def sendMail():
 
 # Functions to help web pages
 def authenticate():
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userInfoFile.close()
+
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
 
 def loadInbox():
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userInfoFile.close()
+
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(
 "<!doctype html>\n"
@@ -108,7 +131,7 @@ def loadInbox():
     "<!-- Bootstrap core CSS -->\n"
     "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
 
-"<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
+    "<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
 
   "</head>\n"
   "<body class=\"text-center\">\n"
@@ -161,6 +184,11 @@ def loadInbox():
 
 
 def sendEmail(newMessage):
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userInfoFile.close()
+
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)
         server.send_message(newMessage)
