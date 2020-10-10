@@ -22,7 +22,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     time = datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
-    sendEmail(newMessage, userName, password)
+    sendEmail(newMessage)
 
     print("Checking if test email was received...")
     Mailbox = poplib.POP3_SSL('pop.googlemail.com', '995')
