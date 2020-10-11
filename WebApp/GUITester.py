@@ -1,30 +1,38 @@
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager #must pip install webdriver_manager
+import time
 
 driver = webdriver.Chrome(executable_path=ChromeDriverManager().install())
 
-driver.get("http://0.0.0.0:5000")
+def sendEmail():
+    driver.get("http://0.0.0.0:5000")
 
-userName = driver.find_element_by_xpath('//*[@id="inputEmail"]')
-userName.send_keys("group2emailclient@gmail.com")
+    userName = driver.find_element_by_xpath('//*[@id="inputEmail"]')
+    userName.send_keys("group2emailclient@gmail.com")
 
-password = driver.find_element_by_xpath('//*[@id="inputPassword"]')
-password.send_keys("Group2Test")
+    password = driver.find_element_by_xpath('//*[@id="inputPassword"]')
+    password.send_keys("Group2Test")
 
-login = driver.find_element_by_xpath("/html/body/form/button")
-login.click()
+    login = driver.find_element_by_xpath("/html/body/form/button")
+    login.click()
 
-sendMail = driver.find_element_by_xpath("/html/body/div/button")
-sendMail.click()
+    time.sleep(2)
 
-to = driver.find_element_by_xpath('//*[@id="sendto"]')
-to.send_keys("elichartnett@gmail.com")
+    sendMail = driver.find_element_by_xpath("/html/body/div/button")
+    sendMail.click()
 
-subject = driver.find_element_by_xpath("/html/body/form/input[2]")
-subject.send_keys("Test subject")
+    to = driver.find_element_by_xpath('//*[@id="sendto"]')
+    to.send_keys("group2emailclient@gmail.com")
 
-body = driver.find_element_by_xpath("/html/body/form/textarea")
-body.send_keys("Test body")
+    subject = driver.find_element_by_xpath("/html/body/form/input[2]")
+    subject.send_keys("Test subject")
 
-send = driver.find_element_by_xpath("/html/body/form/button")
-send.click()
+    body = driver.find_element_by_xpath("/html/body/form/textarea")
+    body.send_keys("Test body")
+
+    send = driver.find_element_by_xpath("/html/body/form/button")
+    send.click()
+
+if __name__ == '__main__':
+    for i in range(5):
+        sendEmail()
