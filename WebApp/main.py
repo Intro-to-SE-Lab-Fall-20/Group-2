@@ -6,9 +6,11 @@ from datetime import datetime
 import poplib  # inbox
 import sys
 
+
 app = Flask(__name__)
 emailport = 465  # Gmail port
 context = ssl.create_default_context()
+
 
 def travisTest():  # sends email to itself to verify it works (for travis CI)
     print("Sending test email...") # setting up email
@@ -80,7 +82,7 @@ def sendMail():
         newMessage = EmailMessage()
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
-        newMessage['From'] = userEmail
+        newMessage['From'] = "Group 2"
         newMessage.set_content(request.form['msgbody'])
         att = request.form['attachment']
         if '.pdf' in att:
@@ -189,7 +191,7 @@ def sendEmail(newMessage):
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
+    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:  # sending email
         server.login(userEmail, userPassword)
         server.send_message(newMessage)
     return redirect('/inbox')  # goes back to inbox after sending mail
