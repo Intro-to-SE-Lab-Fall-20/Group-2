@@ -170,43 +170,41 @@ def loadInbox():
     userInfoFile.close()
     Mailbox.user(userEmail)
     Mailbox.pass_(userPassword)
-    numEmails = Mailbox.list()[1]
+    (numEmails, totalSize) = Mailbox.stat()
     maxLoad = 5
     htmlFile = open("templates/inbox.html", 'a')
     emailIndex = 0
-
-    for email in numEmails:  # iterate over all emails in inbox
+    for email in range(numEmails):  # iterate over all emails in inbox
         if emailIndex < maxLoad:
             searchIndex = 0
-            for sender in Mailbox.retr(emailIndex + 1)[1]:  # find sender of current email
+            for sender in Mailbox.retr(numEmails - emailIndex)[1]:  # find sender of current email
                 if b'Return-Path:' in sender:
                     searchIndex += 1
                     break
                 else:
                     searchIndex += 1
-            sender = Mailbox.retr(emailIndex + 1)[1][searchIndex - 1]
+            sender = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
             sender = sender[14:len(sender) - 1]
 
             searchIndex = 0
-            for subject in Mailbox.retr(emailIndex + 1)[1]:  # find subject for current email
+            for subject in Mailbox.retr(numEmails - emailIndex)[1]:  # find subject for current email
                 if b'Subject:' in subject:
                     searchIndex += 1
                     break
                 else:
                     searchIndex += 1
-            subject = Mailbox.retr(emailIndex + 1)[1][searchIndex - 1]
+            subject = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
             subject = subject[9:len(sender)]
 
             searchIndex = 0
-            for time in Mailbox.retr(emailIndex + 1)[1]:  # find time for current email
+            for time in Mailbox.retr(numEmails - emailIndex)[1]:  # find time for current email
                 if b'Date:' in time:
                     searchIndex += 1
                     break
                 else:
                     searchIndex += 1
-            time = Mailbox.retr(emailIndex + 1)[1][searchIndex - 1]
+            time = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
             time = time[6:len(time)]
-
 
             htmlFile = open("templates/inbox.html", 'a')  # appending sender, subject, and time to inbox.html file
             htmlFile.write(
