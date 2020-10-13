@@ -192,7 +192,7 @@ def loadInbox():
     Mailbox.user(userEmail)
     Mailbox.pass_(userPassword)
     numEmails = len(Mailbox.list()[1])
-    maxLoad = 7
+    maxLoad = 20
     htmlFile = open("templates/inbox.html", 'a')
     emailIndex = 0
     for email in range(numEmails):  # iterate over all emails in inbox
