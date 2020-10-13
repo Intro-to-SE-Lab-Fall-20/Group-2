@@ -1,11 +1,14 @@
 from flask import Flask, request, render_template, redirect  # local hosting
 import smtplib, ssl  # server library
-import imghdr  # attachments
+import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
-import poplib  # inbox
+import poplib  # collects inbox from Google
 import sys
-import cgi
+import os
+import shutil # removes directory of uploaded files
+
+
 app = Flask(__name__)
 emailport = 465  # Gmail port
 context = ssl.create_default_context()
@@ -17,7 +20,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     userPassword = "Group2Test"
     newMessage = EmailMessage()
     newMessage['To'] = userEmail
-    newMessage['Subject'] = "1 SERVER STARTED"
+    newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
     time = datetime.now()
     time = str(time)
@@ -88,24 +91,39 @@ def sendMail():
         newMessage['Subject'] = request.form['subject']
         newMessage['From'] = "Group 2"
         newMessage.set_content(request.form['msgbody'])
-        att = request.form['attachment']
-        if '.pdf' in att:
-            file = open(request.form['attachment'], "rb")
-            file_data = file.read()
-            newMessage.add_attachment(file_data, maintype="application", subtype="pdf")
-        elif '.txt' in att:
-            file = open(request.form['attachment'], "r")
-            file_data = file.read()
-            newMessage.add_attachment(file_data)
-        elif '.png' in att or '.gif' in att:
-            file = open(request.form['attachment'], "rb")
-            image = file.read()
-            image_type = imghdr.what(file.name)
-            newMessage.add_attachment(image, maintype='image', subtype=image_type)
+
+        image = request.files["attachment"]
+        if image.filename != "":
+            rootPath = os.path.dirname(os.path.abspath("main.py"))
+            imageUploads = "imageUploads"
+            uploadImagesPath = os.path.join(rootPath, imageUploads)
+            if os.path.exists("imageUploads") == False:
+                os.mkdir(uploadImagesPath)
+            app.config["IMAGE_UPLOADS"] = uploadImagesPath
+            image.save(os.path.join(app.config["IMAGE_UPLOADS"], image.filename))
+            file = open(os.path.join(app.config["IMAGE_UPLOADS"], image.filename), "rb")
+            fileData = file.read()
+            if '.pdf' in image.filename:
+                newMessage.add_attachment(fileData, maintype="application", subtype="pdf")
+            elif '.txt' in image.filename:
+                newMessage.add_attachment(fileData)
+            elif '.png' in image.filename or '.gif' in image.filename:
+                print("png")
+                image_type = imghdr.what(file.name)
+                newMessage.add_attachment(fileData, maintype='image', subtype=image_type)
         return sendEmail(newMessage)
     else:
         return render_template('sendmail.html')
 
+
+
+@app.route('/logout')
+def logout():
+    os.remove('userCredentials.txt')
+    os.remove('templates/inbox.html')
+    if os.path.exists("imageUploads") == True:
+        shutil.rmtree('imageUploads')
+    return redirect('/')
 
 
 # Functions to help web pages
@@ -144,6 +162,9 @@ def loadInbox():
         "</head>\n"
         "<body class=\"text-center\">\n"
         "<div class=\"container\">\n"
+        "<form action=\"logout\">"
+        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Logout</button>\n"
+        "</form>\n"
         "<h1>Inbox</h1>\n"
         "<form class=\"inbox\" method=\"POST\">\n"
         "<label for=\"searchInbox\" class=\"sr-only\">Search Term</label>\n"
@@ -170,8 +191,8 @@ def loadInbox():
     userInfoFile.close()
     Mailbox.user(userEmail)
     Mailbox.pass_(userPassword)
-    (numEmails, totalSize) = Mailbox.stat()
-    maxLoad = 5
+    numEmails = len(Mailbox.list()[1])
+    maxLoad = 7
     htmlFile = open("templates/inbox.html", 'a')
     emailIndex = 0
     for email in range(numEmails):  # iterate over all emails in inbox
@@ -256,8 +277,6 @@ def loadInbox():
         "</div>\n"
         "</body>\n"
         "</html>\n")
-
-
 
 
 def sendEmail(newMessage):
