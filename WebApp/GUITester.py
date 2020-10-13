@@ -2,10 +2,8 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager #must pip install webdriver_manager
 import time
 
-driver = webdriver.Chrome(executable_path=ChromeDriverManager().install())
 
-def sendEmail():
-    driver.get("http://0.0.0.0:5000")
+def sendEmail(i):
 
     userName = driver.find_element_by_xpath('//*[@id="inputEmail"]')
     userName.send_keys("group2emailclient@gmail.com")
@@ -25,7 +23,7 @@ def sendEmail():
     to.send_keys("group2emailclient@gmail.com")
 
     subject = driver.find_element_by_xpath("/html/body/form/input[2]")
-    subject.send_keys("Test subject")
+    subject.send_keys("Test ", i)
 
     body = driver.find_element_by_xpath("/html/body/form/textarea")
     body.send_keys("Test body")
@@ -33,6 +31,12 @@ def sendEmail():
     send = driver.find_element_by_xpath("/html/body/form/button")
     send.click()
 
+    logout = driver.find_element_by_xpath("/html/body/div/form[1]")
+    logout.click()
+
 if __name__ == '__main__':
-    for i in range(5):
-        sendEmail()
+    driver = webdriver.Chrome(executable_path=ChromeDriverManager().install())
+    driver.get("http://0.0.0.0:5000")
+
+    for i in range(2):
+        sendEmail(i)
