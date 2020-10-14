@@ -64,10 +64,7 @@ def login():
 
 @app.route('/inbox', methods=['POST', 'GET'])
 def inbox():
-
-
-    if request.method == 'POST':  # when form is submitted, it performs the only action (going to send an email)
-        sublist = loadInbox()
+    if request.method == 'POST':
         userSearch = request.form['search']  # requests the object with name 'search'
 
         print(userSearch)
@@ -199,27 +196,27 @@ def loadInbox():
         if emailIndex < maxLoad:
             searchIndex = 0
             for sender in Mailbox.retr(numEmails - emailIndex)[1]:  # find sender of current email
-                if b'Return-Path:' in sender:
+                if b'From: ' in sender:
                     searchIndex += 1
                     break
                 else:
                     searchIndex += 1
             sender = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
-            sender = sender[14:len(sender) - 1]
+            sender = sender[5:len(sender)]
 
             searchIndex = 0
             for subject in Mailbox.retr(numEmails - emailIndex)[1]:  # find subject for current email
-                if b'Subject:' in subject:
+                if b'Subject: ' in subject:
                     searchIndex += 1
                     break
                 else:
                     searchIndex += 1
             subject = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
-            subject = subject[9:len(sender)]
+            subject = subject[9:len(subject)]
 
             searchIndex = 0
             for time in Mailbox.retr(numEmails - emailIndex)[1]:  # find time for current email
-                if b'Date:' in time:
+                if b'Date: ' in time:
                     searchIndex += 1
                     break
                 else:
