@@ -3,7 +3,8 @@ import smtplib, ssl  # server library
 import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
-import poplib  # collects inbox from Google
+import imaplib
+import email
 import sys
 import os
 import shutil # removes directory of uploaded files
@@ -117,7 +118,12 @@ def sendMail():
 @app.route('/logout')
 def logout():
     os.remove('userCredentials.txt')
-    os.remove('templates/inbox.html')
+    file = open('userCredentials', 'w')
+    file.write("")
+
+    file = open('templates/inbox.html', 'w')
+    file.write("")
+
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
     return redirect('/')
@@ -179,86 +185,71 @@ def loadInbox():
         "<tbody>\n")
     htmlFile.close()
 
-    Mailbox = poplib.POP3_SSL('pop.googlemail.com', '995')  # logging in to read inbox
     userInfoFile = open("userCredentials.txt", 'r')
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userEmail = userEmail[0:len(userEmail) - 1]
     userPassword = userPassword[0:len(userPassword) - 1]
     userInfoFile.close()
-    Mailbox.user(userEmail)
-    Mailbox.pass_(userPassword)
-    numEmails = len(Mailbox.list()[1])
-    maxLoad = 20
-    htmlFile = open("templates/inbox.html", 'a')
-    emailIndex = 0
-    for email in range(numEmails):  # iterate over all emails in inbox
-        if emailIndex < maxLoad:
-            searchIndex = 0
-            for sender in Mailbox.retr(numEmails - emailIndex)[1]:  # find sender of current email
-                if b'From: ' in sender:
-                    searchIndex += 1
-                    break
-                else:
-                    searchIndex += 1
-            sender = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
-            sender = sender[5:len(sender)]
 
-            searchIndex = 0
-            for subject in Mailbox.retr(numEmails - emailIndex)[1]:  # find subject for current email
-                if b'Subject: ' in subject:
-                    searchIndex += 1
-                    break
-                else:
-                    searchIndex += 1
-            subject = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
-            subject = subject[9:len(subject)]
+    # create an IMAP4 class with SSL
+    imap = imaplib.IMAP4_SSL("imap.gmail.com")
+    # authenticate
+    imap.login(userEmail, userPassword)
+    imap.select('Inbox')
+    type, messages = imap.search(None, 'ALL')
+    numEmails = len(messages[0].split())
+    maxLoad = 10
+    numLoaded = 0
+    index = numEmails
 
-            searchIndex = 0
-            for time in Mailbox.retr(numEmails - emailIndex)[1]:  # find time for current email
-                if b'Date: ' in time:
-                    searchIndex += 1
-                    break
-                else:
-                    searchIndex += 1
-            time = Mailbox.retr(numEmails - emailIndex)[1][searchIndex - 1]
-            time = time[6:len(time)]
+    for messageNum in messages[0].split():  # iterating through all messages
+        currentEmail = str(index).encode()
+        typ, data = imap.fetch(currentEmail, '(RFC822)')
+        for response_part in data:
+            if isinstance(response_part, tuple):
+                msg = email.message_from_string(response_part[1].decode('latin1'))
+                email_subject = msg['subject']
+                email_from = msg['from']
+                email_body = msg.get_payload()
+                index-=1
 
-            htmlFile = open("templates/inbox.html", 'a')  # appending sender, subject, and time to inbox.html file
-            htmlFile.write(
-                "<tr>\n"
-                "<td>")
-            htmlFile.close()
+        htmlFile = open("templates/inbox.html", 'a')  # appending sender, subject, and time to inbox.html file
+        htmlFile.write(
+            "<tr>\n"
+            "<td>")
+        htmlFile.close()
 
-            htmlFile = open("templates/inbox.html", 'ab')
-            htmlFile.write(sender)
-            htmlFile.close()
+        htmlFile = open("templates/inbox.html", 'a')
+        htmlFile.write(email_from)
+        htmlFile.close()
 
+        htmlFile = open("templates/inbox.html", 'a')
+        htmlFile.write(
+            "</td>\n"
+            "<td>")
+        htmlFile.close()
+
+        if email_subject != None:
             htmlFile = open("templates/inbox.html", 'a')
-            htmlFile.write(
-                "</td>\n"
-                "<td>")
+            htmlFile.write(email_subject)
             htmlFile.close()
 
-            htmlFile = open("templates/inbox.html", 'ab')
-            htmlFile.write(subject)
-            htmlFile.close()
+        htmlFile = open("templates/inbox.html", 'a')
+        htmlFile.write("</td>\n"
+                       "<td>")
+        htmlFile.close()
 
-            htmlFile = open("templates/inbox.html", 'a')
-            htmlFile.write("</td>\n"
-                           "<td>")
-            htmlFile.close()
+        htmlFile = open("templates/inbox.html", 'a')
+        htmlFile.write("time")
+        htmlFile.close()
 
-            htmlFile = open("templates/inbox.html", 'ab')
-            htmlFile.write(time)
-            htmlFile.close()
+        htmlFile = open("templates/inbox.html", 'a')
+        htmlFile.write("</td>\n"
+                       "<tr>\n")
+        htmlFile.close()
 
-            htmlFile = open("templates/inbox.html", 'a')
-            htmlFile.write("</td>\n"
-                           "<tr>\n")
-            htmlFile.close()
 
-            emailIndex += 1
 
     htmlFile = open("templates/inbox.html", 'a')
     htmlFile.write(
