@@ -40,10 +40,10 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
 
-    typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)')
+    typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)') # reads most recent email
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
-    if time in body:
+    if time in body: # if email time is same as the time the test email was sent, test passes
         exit()
 
 
@@ -201,18 +201,27 @@ def loadInbox():
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 10
-    numLoaded = 0
+    maxLoad = 50
+    toLoad = 0
+    if numEmails > maxLoad:
+        toLoad = maxLoad
+    else:
+        toLoad = numEmails
     index = numEmails
 
-    for messageNum in messages[0].split():  # iterating through all messages
+    for messageNum in range(toLoad):  # iterating through all messages
         currentEmail = str(index).encode()
         typ, data = imap.fetch(currentEmail, '(RFC822)')
         for response_part in data:
             if isinstance(response_part, tuple):
                 msg = email.message_from_string(response_part[1].decode('latin1'))
                 email_subject = msg['subject']
+                if email_subject != None and len(email_subject) > 25:
+                    email_subject = email_subject[:25] + "..."
                 email_from = msg['from']
+                if len(email_from) > 35:
+                    email_from = email_from[:35] + "..."
+                email_date = msg['date']
                 email_body = msg.get_payload()
                 index-=1
 
@@ -243,15 +252,13 @@ def loadInbox():
         htmlFile.close()
 
         htmlFile = open("templates/inbox.html", 'a')
-        htmlFile.write("time")
+        htmlFile.write(email_date)
         htmlFile.close()
 
         htmlFile = open("templates/inbox.html", 'a')
         htmlFile.write("</td>\n"
                        "<tr>\n")
         htmlFile.close()
-
-
 
     htmlFile = open("templates/inbox.html", 'a')
     htmlFile.write(
