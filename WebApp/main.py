@@ -32,17 +32,19 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
         server.send_message(newMessage)
 
     print("Checking if test email was received...")
-    Mailbox = poplib.POP3_SSL('pop.googlemail.com', '995')
-    Mailbox.user(userEmail)  # logging into account to check inbox
-    Mailbox.pass_(userPassword)
+    # create an IMAP4 class with SSL
+    imap = imaplib.IMAP4_SSL("imap.gmail.com")
 
-    numMessages = len(Mailbox.list()[1])
-    lastReceivedEmailTime = Mailbox.retr(numMessages)[1][16]  # metadata of email on what time it was sent
-    if str(time) in str(lastReceivedEmailTime):  # checking if times match up
-        print("Server/function test finished. Everything appears to work as expected.")  # if so, other code should work
+    imap.login(userEmail, userPassword)
+    imap.select('Inbox')
+    type, messages = imap.search(None, 'ALL')
+    numEmails = len(messages[0].split())
 
-    Mailbox.quit()
-    exit()
+    typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)')
+    msg = email.message_from_string(data[0][1].decode('latin1'))
+    body = msg.get_payload()
+    if time in body:
+        exit()
 
 
 # Web Pages - first pages are commented, the rest follow similar functionality
