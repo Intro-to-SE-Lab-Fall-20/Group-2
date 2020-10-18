@@ -159,12 +159,17 @@ def sendMail():
 
 @app.route('/logout')
 def logout():
-    os.remove('userCredentials.txt')
-    file = open('userCredentials', 'w')
+    file = open('userCredentials.txt', 'w')
     file.write("")
+    os.remove('userCredentials.txt')
 
     file = open('templates/inbox.html', 'w')
     file.write("")
+    os.remove('templates/inbox.html')
+
+    file = open('templates/displayEmail.html', 'w')
+    file.write("")
+    os.remove('templates/displayEmail.html')
 
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
