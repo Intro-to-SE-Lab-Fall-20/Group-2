@@ -11,6 +11,8 @@
 
     <link rel="stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles/styles.css') }}">
 
+    <script src="//cdn.ckeditor.com/4.14.1/basic/ckeditor.js"></script>
+
 
   </head>
   <body class="text-center">
@@ -22,14 +24,17 @@
       <input type="email" name= "toemail" id="sendto" class="form-control" placeholder="To" required autofocus>
       <label for="subject" class="sr-only">Subject</label>
       <input type="text" name="subject" id="subject" class="form-control" placeholder="Subject" required>
+
+
       <label for="msgbody" class="sr-only">Message Body</label>
-      <textarea name="msgbody" id="msgbody" class="form-control" placeholder="Message Body" required rows=10 cols=10></textarea>
-      <!--<label for="attachment" class="sr-only">Attachment</label>-->
-      
+      <textarea name="msgbody" id="msgbody" placeholder="Message Body" required rows=10 cols=10></textarea>
+      <script>
+          CKEDITOR.replace( 'msgbody' );
+      </script>
+
       <label for="attachment" class="sr-only">Attachment</label>
       <input type="file" name="attachment" id="attachment" class="form-control" placeholder="Attachment (optional)">
-      <button class="btn btn-lg btn-primary btn-block" type="submit">Send</button></button>
+      <button class="btn btn-lg btn-primary btn-block" type="submit">Send</button>
   </form>
-  <button class="wG J-Z-I" command="Files" data-tooltip="Attach files" aria-label="Attach files" tabindex="1" id=":rh" aria-pressed="false" aria-haspopup="true" aria-expanded="false" style="user-select: none;"></button>
 </body>
 </html>
