@@ -113,7 +113,7 @@ def inbox():
                 return render_template('/SearchResults.html')
 
             elif request.form.get('sendMail'):
-                return render_template('/sendmail.html')
+                return redirect('/sendmail')
 
     else:
         loadInbox()
@@ -121,11 +121,11 @@ def inbox():
 
 @app.route('/sendmail', methods=['GET', 'POST'])
 def sendMail():
-    print("here now")
     userInfoFile = open("userCredentials.txt", 'r')
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userInfoFile.close()
+    print("Inside sendmail route")
 
     if request.method == 'POST':
         newMessage = EmailMessage()
@@ -155,7 +155,7 @@ def sendMail():
                 newMessage.add_attachment(fileData, maintype='image', subtype=image_type)
         return sendEmail(newMessage)
     else:
-        return redirect('/sendmail')
+        return render_template('/sendmail.html')
 
 @app.route('/logout')
 def logout():
