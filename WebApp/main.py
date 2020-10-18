@@ -112,12 +112,16 @@ def inbox():
                 print(userSearch)
                 return render_template('/SearchResults.html')
 
+            elif request.form.get('sendMail'):
+                return render_template('/sendmail.html')
+
     else:
         loadInbox()
         return render_template('inbox.html')  # renders inbox.html until form is submitted
 
 @app.route('/sendmail', methods=['GET', 'POST'])
 def sendMail():
+    print("here now")
     userInfoFile = open("userCredentials.txt", 'r')
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
@@ -151,7 +155,7 @@ def sendMail():
                 newMessage.add_attachment(fileData, maintype='image', subtype=image_type)
         return sendEmail(newMessage)
     else:
-        return render_template('sendmail.html')
+        return redirect('/sendmail')
 
 @app.route('/logout')
 def logout():
@@ -299,7 +303,7 @@ def loadInbox():
 
         "<table class=\"table\">\n"
         "<form action=\"sendmail\">\n"
-        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Send mail</button>\n"
+        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\" name=\"sendMail\" value=\"sendMail\">Send mail</button>\n"
         "</form>\n"
         "</table> \n"
         "</div>\n"
