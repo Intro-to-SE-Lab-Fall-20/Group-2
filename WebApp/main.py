@@ -132,7 +132,7 @@ def sendMail():
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
         newMessage['From'] = "Group 2"
-        newMessage.set_content(request.form['msgbody'])
+        newMessage.add_alternative(request.form['msgbody'], subtype='html')
 
         image = request.files["attachment"]
         if image.filename != "":
