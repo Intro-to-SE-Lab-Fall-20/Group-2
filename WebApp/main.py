@@ -4,7 +4,6 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
-from email.header import decode_header
 import email
 import sys
 import os
@@ -129,7 +128,7 @@ def sendMail():
         newMessage = EmailMessage()
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
-        newMessage['From'] = "Group 2"
+        newMessage['From'] = userEmail
         newMessage.add_alternative(request.form['msgbody'], subtype='html')
 
         image = request.files["attachment"]
@@ -243,7 +242,7 @@ def loadInbox():
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 5
+    maxLoad = 20
     toLoad = 0
     if numEmails > maxLoad:
         toLoad = maxLoad
@@ -328,12 +327,12 @@ def loadInbox():
         text += email_from + "</h5><br>\n"
         text += "<h5>Subject: " + email_subject + "</h5>\n"
         text += "<h6>Date: " + email_date + "</h6><br>\n"
-        text += "<h6>" + email_body + "</h6><br>\n"
+        text += "<h6>" + str(email_body) + "</h6><br>\n"
         text += (
             "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
             )
         text += str(index+1) + ("()\">Cancel</button>\n"
-            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px\" type=\"button\" onclick=\"openForm(\'" + email_subject + "\' , `" + email_body + "`);\">Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px\" type=\"button\" onclick=\"openForm(\'" + email_subject + "\' , `" + str(email_body) + "`);\">Forward</button>\n"
             "</div>\n")
         text += (
             "<script>\n"
