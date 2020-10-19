@@ -242,7 +242,7 @@ def loadInbox():
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 20
+    maxLoad = 25
     toLoad = 0
     if numEmails > maxLoad:
         toLoad = maxLoad
