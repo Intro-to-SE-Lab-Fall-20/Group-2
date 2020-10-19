@@ -80,6 +80,7 @@ def inbox():
         numEmails = len(messages[0].split())
 
         for i in range(numEmails):
+            i+=1
             if request.form.get(str(i)):
                 typ, data = imap.fetch(str(i), '(RFC822)')
                 for response_part in data:
@@ -95,11 +96,9 @@ def inbox():
                         text = "<p>Sender: " + email_from + "</p>\n"
                         text += "<p>Subject: " + email_subject + "</p>\n"
                         text += "<p>Date: " + email_date + "</p>\n"
-                        if len(email_body) == 0 or len(email_body) == 1: # *ELI* will work on this
-                            text += "<p>Message: " + email_body + "</p>" # need to check if body
-                        else:                                            # is a list.
-                            print("too long to display")
-                            print(len(email_body))
+                        text += "Body: "
+                        for part in email_body:
+                            text += str(part)
 
                         file = open("templates/displayEmail.html", 'w')
                         file.write(text)
@@ -125,14 +124,13 @@ def sendMail():
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userInfoFile.close()
-    print("Inside sendmail route")
 
     if request.method == 'POST':
         newMessage = EmailMessage()
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
-        newMessage['From'] = "Group 2"
-        newMessage.add_alternative(request.form['msgbody'], subtype='html')
+        newMessage['From'] = userEmail
+        newMessage.set_content(request.form['msgbody'])
 
         image = request.files["attachment"]
         if image.filename != "":
@@ -286,14 +284,14 @@ def loadInbox():
 
         text += email_date
 
-        text += (
+        text += (                                           # appending buttons to open email
             "<form method =\"post\" action=\"/inbox\">" 
                  "<button type=\"submit\" name=\"")
-        text += str(index)
+        text += str(index+1)
         text += "\" value=\""
-        text += str(index)
+        text += str(index+1)
         text += "\"> Open Message "
-        text += str(index)
+        text += str(index+1)
         text += "</button>"
 
 
@@ -317,6 +315,7 @@ def loadInbox():
 
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(text)
+    htmlFile.close()
 
 def sendEmail(newMessage):
     userInfoFile = open("userCredentials.txt", 'r')
