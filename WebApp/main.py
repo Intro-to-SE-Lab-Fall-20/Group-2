@@ -8,6 +8,8 @@ import email
 import sys
 import os
 import shutil # removes directory of uploaded files
+from email.header import decode_header
+
 
 
 app = Flask(__name__)
@@ -78,6 +80,7 @@ def inbox():
         imap.select('Inbox')
         type, messages = imap.search(None, 'ALL')
         numEmails = len(messages[0].split())
+        email_body = ""
 
         for i in range(numEmails):
             i+=1
@@ -86,23 +89,63 @@ def inbox():
                 for response_part in data:
                     if isinstance(response_part, tuple):
                         msg = email.message_from_string(response_part[1].decode('latin1'))
-                        email_subject = msg['subject']
-                        if msg['subject'] != None:
-                            email_subject = msg['subject']
-                        email_from = msg['from']
                         email_date = msg['date']
-                        email_body = msg.get_payload()
+                        # parse a bytes email into a message object
+                        msg = email.message_from_bytes(response_part[1])
+                        # decode the email subject
+                        subject = decode_header(msg["Subject"])[0][0]
+                        if isinstance(subject, bytes):
+                            # if it's a bytes, decode to str
+                            subject = subject.decode()
+                        # email sender
+                        email_from = msg.get("From")
+                        email_subject = subject
+                        # if the email message is multipart
+                        if msg.is_multipart():
+                            # iterate over email parts
+                            for part in msg.walk():
+                                # extract content type of email
+                                content_type = part.get_content_type()
+                                content_disposition = str(part.get("Content-Disposition"))
+                                try:
+                                    # get the email body
+                                    body = part.get_payload(decode=True).decode()
+                                except:
+                                    pass
+                                if content_type == "text/plain" and "attachment" not in content_disposition:
+                                    # print text/plain emails and skip attachments
+                                    email_body += body
+                                    text = ""
+                                    text += "<p>Sender: " + email_from + "</p>\n"
+                                    text += "<p>Subject: " + email_subject + "</p>\n"
+                                    text += "<p>Date: " + email_date + "</p>\n"
+                                    text += "Body: " + email_body
+                                    file = open("templates/displayEmail.html", 'w')
+                                    file.write(text)
+                                    file.close()
 
-                        text = "<p>Sender: " + email_from + "</p>\n"
-                        text += "<p>Subject: " + email_subject + "</p>\n"
-                        text += "<p>Date: " + email_date + "</p>\n"
-                        text += "Body: "
-                        for part in email_body:
-                            text += str(part)
+                                elif "attachment" in content_disposition:
+                                    # download attachment
+                                    filename = part.get_filename()
+                                    if filename:
+                                        if not os.path.isdir(subject):
+                                            # make a folder for this email (named after the subject)
+                                            os.mkdir(subject)
+                                        filepath = os.path.join(subject, filename)
+                                        # download attachment and save it
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        text = ""
+                                        text += "<p>Sender: " + email_from + "</p>\n"
+                                        text += "<p>Subject: " + email_subject + "</p>\n"
+                                        text += "<p>Date: " + email_date + "</p>\n"
+                                        text += "Body: " + email_body
+                                        text += "<img src=\""
+                                        text += "Screen Shot 2020-10-19 at 9.40.38 AM.png"
+                                        text += "\" />"
+                                        file = open("templates/displayEmail.html", 'w')
+                                        file.write(text)
+                                        file.close()
 
-                        file = open("templates/displayEmail.html", 'w')
-                        file.write(text)
-                        file.close()
                 return render_template('displayEmail.html')
 
             elif request.form.get('search'):
@@ -255,15 +298,16 @@ def loadInbox():
         for response_part in data:
             if isinstance(response_part, tuple):
                 msg = email.message_from_string(response_part[1].decode('latin1'))
-                email_subject = msg['subject']
-                if email_subject != None and len(email_subject) > 25:
-                    email_subject = email_subject[:25] + "..."
-                email_from = msg['from']
-                if len(email_from) > 35:
-                    email_from = email_from[:35] + "..."
                 email_date = msg['date']
-                email_body = msg.get_payload()
-                index-=1
+                email_subject = msg['subject']
+                if email_subject == None:
+                    email_subject = "No Subject"
+                # parse a bytes email into a message object
+                msg = email.message_from_bytes(response_part[1])
+                # email sender
+                email_from  = msg.get("From")
+
+        index-=1
 
         text += (  # appending sender, subject, and time to inbox.html file
             "<tr>\n"
@@ -275,8 +319,7 @@ def loadInbox():
             "</td>\n"
             "<td>")
 
-        if email_subject != None:
-            text += email_subject
+        text += email_subject
 
         text += (
             "</td>\n"
