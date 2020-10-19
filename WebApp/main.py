@@ -333,7 +333,7 @@ def loadInbox():
             "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
             )
         text += str(index+1) + ("()\">Cancel</button>\n"
-            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px\" type=\"button\" onclick=\"openForm(\'" + email_subject + "\');\">Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px\" type=\"button\" onclick=\"openForm(\'" + email_subject + "\' , `" + email_body + "`);\">Forward</button>\n"
             "</div>\n")
         text += (
             "<script>\n"
@@ -379,8 +379,9 @@ def loadInbox():
         "</div>\n"
         "<script>\n"
         
-        "function openForm(s){\n"
+        "function openForm(s, b){\n"
         "CKEDITOR.replace( 'msgbody' );\n"
+        "document.getElementById(\"msgbody\").value = b;\n"
         "document.getElementById(\"subject\").value = s; \n"
         "document.getElementById(\"myForm\").style.display = \"block\";\n"
         "}\n"
