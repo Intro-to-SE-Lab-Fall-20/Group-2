@@ -4,6 +4,7 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
+from email.header import decode_header
 import email
 import sys
 import os
@@ -128,7 +129,7 @@ def sendMail():
         newMessage = EmailMessage()
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
-        newMessage['From'] = userEmail
+        newMessage['From'] = request.form['from']
         newMessage.add_alternative(request.form['msgbody'], subtype='html')
 
         image = request.files["attachment"]
@@ -164,9 +165,6 @@ def logout():
     file.write("")
     os.remove('templates/inbox.html')
 
-    file = open('templates/displayEmail.html', 'w')
-    file.write("")
-    os.remove('templates/displayEmail.html')
 
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
@@ -209,7 +207,7 @@ def loadInbox():
     "<body class=\"text-center\">\n"
     "<div class=\"container\">\n"
     "<form action=\"logout\">"
-    "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Logout</button>\n"
+    "<button class=\"btn btn-primary\" style=\"right: 0;\" type=\"submit\">Logout</button>\n"
     "</form>\n"
     "<h1>Inbox</h1>\n"
     "<form class=\"inbox\" method=\"POST\">\n"
@@ -242,7 +240,7 @@ def loadInbox():
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 25
+    maxLoad = 5
     toLoad = 0
     if numEmails > maxLoad:
         toLoad = maxLoad
@@ -321,18 +319,17 @@ def loadInbox():
             "<div class=\"text-left\" style=\" overflow: auto; display: none; position: absolute; width: 50%; height: 50%; left: 25%; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" id=\"email")
         text += str(index+1) + "\">\n"
         text += (
-            #"<form action=\"sendmail\" style=\"height: 200px; margin: auto; max-width: 600px; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" method=\"POST\">\n"
             "<h5>From: "
             )
         text += email_from + "</h5><br>\n"
         text += "<h5>Subject: " + email_subject + "</h5>\n"
         text += "<h6>Date: " + email_date + "</h6><br>\n"
-        text += "<h6>" + str(email_body) + "</h6><br>\n"
+        text += "<h6>" + email_body + "</h6><br>\n"
         text += (
-            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
+            "<button class=\"btn btn-primary\" style=\"position: absolute; right: 0; bottom: 0; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
             )
         text += str(index+1) + ("()\">Cancel</button>\n"
-            "<button class=\"btn btn-primary\" style=\"float:right; margin-top: 50%; margin: 5px\" type=\"button\" onclick=\"openForm(\'" + email_subject + "\' , `" + str(email_body) + "`);\">Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\"openForm('" + email_subject + "' , `" + email_body + "`);\">Forward</button>\n"
             "</div>\n")
         text += (
             "<script>\n"
@@ -358,7 +355,7 @@ def loadInbox():
         "<br><br>"
         "<button class=\"btn btn-lg btn-primary btn-block\" name=\"sendMail\" onclick=\"openForm(\'\',\'\')\" value=\"sendMail\">Send mail</button>\n"
         "<div style=\"  bottom: 500px; display: none; position: relative; align-items: center;\" id=\"myForm\">\n"
-        "<form action=\"sendmail\" style=\" margin: auto; max-width: 600px; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
+        "<form action=\"sendmail\" style=\" margin: auto; width: 800px; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
         "<h1>Email Client</h1>\n"
         "<h1 class=\"h3 mb-3 font-weight-normal\">Send Email</h1>\n"
         "<label for=\"sendto\" class=\"sr-only\">To:</label>\n"
@@ -368,7 +365,7 @@ def loadInbox():
 
 
         "<label for=\"msgbody\" class=\"sr-only\">Message Body</label>\n"
-        "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"><script></textarea>\n"
+        "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"></textarea>\n"
 
         "<label for=\"attachment\" class=\"sr-only\">Attachment</label>\n"
         "<input type=\"file\" name=\"attachment\" id=\"attachment\" class=\"form-control\" placeholder=\"Attachment (optional)\">\n"
@@ -379,10 +376,18 @@ def loadInbox():
         "<script>\n"
         
         "function openForm(s, b){\n"
-        "CKEDITOR.replace( 'msgbody' );\n"
-        "document.getElementById(\"msgbody\").value = b;\n"
+        "var editor = CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
+        "if (b != ''){\n"
+        "CKEDITOR.config.readOnly = true;\n"
+        "var forward = 'From: " + email_from + "<br>';\n"
+        "var forward = forward.concat(b);\n"
+        "}\n"
+        
+        "CKEDITOR.instances.msgbody.setData(forward);\n"
         "document.getElementById(\"subject\").value = s; \n"
         "document.getElementById(\"myForm\").style.display = \"block\";\n"
+        "b = null;\n"
+
         "}\n"
         "function closeForm() {\n"
         "document.getElementById(\"myForm\").style.display = \"none\";\n"
@@ -390,6 +395,7 @@ def loadInbox():
         "</script>\n"
         "</body>\n"
         "</html>\n")
+
 
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(text)
