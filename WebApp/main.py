@@ -354,12 +354,12 @@ def loadInbox():
         text += email_from + "</h5><br>\n"
         text += "<h5>Subject: " + email_subject + "</h5>\n"
         text += "<h6>Date: " + email_date + "</h6><br>\n"
-        text += "<h6>" + email_body + "</h6><br>\n"
+        text += "<h6>" + str(email_body) + "</h6><br>\n"
         text += (
             "<button class=\"btn btn-primary\" style=\"position: absolute; right: 0; bottom: 0; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
             )
         text += str(index+1) + ("()\">Cancel</button>\n"
-            "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\"openForm('" + email_subject + "' , `" + email_body + "`);\">Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\"openForm('" + email_subject + "' , `" + str(email_body) + "`);\">Forward</button>\n"
             "</div>\n")
         text += (
             "<script>\n"
