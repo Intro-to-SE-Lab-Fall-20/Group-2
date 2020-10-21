@@ -4,11 +4,13 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
-from email.header import decode_header
 import email
 import sys
 import os
 import shutil  # removes directory of uploaded files
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
 emailport = 465  # Gmail port
@@ -72,7 +74,12 @@ def inbox():
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
-    if request.method == 'POST':
+    if request.form.get('search'):
+        userSearch = request.form.get('search')  # requests the object with name 'search'
+        file = open("templates/SearchResults.html", 'w')
+        file.write("<p><p>\n")
+        file.close()
+
         # create an IMAP4 class with SSL
         imap = imaplib.IMAP4_SSL("imap.gmail.com")
         # authenticate
@@ -81,49 +88,13 @@ def inbox():
         type, messages = imap.search(None, 'ALL')
         numEmails = len(messages[0].split())
 
-        for i in range(numEmails):
-            if request.form.get(str(i)):
-                typ, data = imap.fetch(str(i), '(RFC822)')
-                for response_part in data:
-                    if isinstance(response_part, tuple):
-                        msg = email.message_from_string(response_part[1].decode('latin1'))
-                        email_subject = msg['subject']
-                        if msg['subject'] != None:
-                            email_subject = msg['subject']
-                        email_from = msg['from']
-                        email_date = msg['date']
-                        email_body = msg.get_payload()
-
-                        text = "<p>Sender: " + email_from + "</p>\n"
-                        text += "<p>Subject: " + email_subject + "</p>\n"
-                        text += "<p>Date: " + email_date + "</p>\n"
-                        if len(email_body) == 0 or len(email_body) == 1:  # *ELI* will work on this
-                            text += "<p>Message: " + email_body + "</p>"  # need to check if body
-                        else:  # is a list.
-                            print("too long to display")
-                            print(len(email_body))
-
-                        file = open("templates/displayEmail.html", 'w')
-                        file.write(text)
-                        file.close()
-                return render_template('displayEmail.html')
-
-    if request.form.get('search'):
-        userSearch = request.form.get('search')  # requests the object with name 'search'
-        file = open("templates/SearchResults.html", 'w')
-        file.write("<p><p>\n")
-        file.close()
         for j in range(numEmails):
             j += 1
-
             type, data = imap.fetch(str(j), '(RFC822)')
             for response_part in data:
-
                 if isinstance(response_part, tuple):
                     msg = email.message_from_string(response_part[1].decode('latin1'))
                     varSubj = msg['subject']
-                    # print(varSubj)
-
                     if varSubj == userSearch:
                         # Record the matched email data and append it to the html file
                         email_from = msg['from']
@@ -133,18 +104,31 @@ def inbox():
                         text += "<p>Subject: " + varSubj + "</p>\n"
                         text += "<p>Date: " + email_date + "</p>\n"
                         text += "Body: "
-                        for part in email_body:
-                            text += str(part)
+                        if msg.is_multipart():
+                            for part in msg.walk():
+                                ctype = part.get_content_type()
+                                cdispo = str(part.get('Content-Disposition'))
+
+                                if ctype == 'text/html' or 'application' in cdispo:
+                                    text += part.get_payload(decode=True).decode()
+                                elif "attachment" in cdispo:
+                                    filename = part.get_filename()
+                                    if filename:
+                                        if not os.path.isdir('static'):
+                                            os.mkdir('static')
+                                        filepath = os.path.join('static', filename)
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        text += "<img src=\"" + filepath + "\">\n"
+
                         text += "<p> -----------------------------------------<p>\n\n\n"
+
                         file = open("templates/SearchResults.html", 'a')
                         file.write(text)
                         file.close()
-
         return render_template('/SearchResults.html')
 
-    else:
-        loadInbox()
-        return render_template('inbox.html')  # renders inbox.html until form is submitted
+    loadInbox()
+    return render_template('inbox.html')  # renders inbox.html until form is submitted
 
 
 @app.route('/sendmail', methods=['GET', 'POST'])
@@ -155,11 +139,14 @@ def sendMail():
     userInfoFile.close()
 
     if request.method == 'POST':
-        newMessage = EmailMessage()
+        newMessage = MIMEMultipart()
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
         newMessage['From'] = userEmail
-        newMessage.add_alternative(request.form['msgbody'], subtype='html')
+        body = MIMEText(request.form['msgbody'], 'html', 'utf-8')
+        body.add_header('Content-Disposition', 'text/html')
+
+        newMessage.attach(body)
 
         image = request.files["attachment"]
         if image.filename != "":
@@ -175,24 +162,30 @@ def sendMail():
             if '.pdf' in image.filename:
                 newMessage.add_attachment(fileData, maintype="application", subtype="pdf")
             elif '.txt' in image.filename:
-                newMessage.add_attachment(fileData)
+                txt = MIMEText(fileData.decode())
+                newMessage.attach(txt)
             elif '.png' in image.filename or '.gif' in image.filename:
                 image_type = imghdr.what(file.name)
-                newMessage.add_attachment(fileData, maintype='image', subtype=image_type)
+                att = MIMEImage(fileData)
+                att.add_header('Content-Disposition', 'attachment', filename=image.filename)
+                newMessage.attach(att)
         return sendEmail(newMessage)
+
     else:
-        return render_template('/sendmail.html')
+        return render_template("/sendmail.html")
 
 
 @app.route('/logout')
 def logout():
-    file = open('userCredentials.txt', 'w')
-    file.write("")
-    os.remove('userCredentials.txt')
+    file = open('userCredentials.txt', 'r+')
+    file.truncate(0)
+    file.close()
+    # os.remove('userCredentials.txt')
 
-    file = open('templates/inbox.html', 'w')
-    file.write("")
-    os.remove('templates/inbox.html')
+    file = open('templates/inbox.html', 'r+')
+    file.truncate(0)
+    file.close()
+    # os.remove('templates/inbox.html')
 
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
@@ -216,6 +209,13 @@ def loadInbox():
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
+    # create an IMAP4 class with SSL
+    imap = imaplib.IMAP4_SSL("imap.gmail.com")
+    # authenticate
+    imap.login(userEmail, userPassword)
+    imap.select('Inbox')
+    type, messages = imap.search(None, 'ALL')
+    numEmails = len(messages[0].split())
     text = (
         "<!doctype html>\n"
         "<html lang=\"en\">\n"
@@ -252,7 +252,6 @@ def loadInbox():
         "<th scope=\"col\">Time</th>\n"
         "</tr>\n"
         "</thead>\n"
-        # "</table>\n"
     )
 
     userInfoFile = open("userCredentials.txt", 'r')
@@ -282,36 +281,35 @@ def loadInbox():
         typ, data = imap.fetch(currentEmail, '(RFC822)')
         for response_part in data:
             if isinstance(response_part, tuple):
-                msg = email.message_from_string(response_part[1].decode('latin1'))
+                msg = email.message_from_bytes(response_part[1])
                 email_subject = msg['subject']
                 if email_subject != None and len(email_subject) > 25:
                     email_subject = email_subject[:25] + "..."
                 email_from = msg['from']
                 if len(email_from) > 35:
-                    email_from = email_from[:35] + ">"
+                    email_from = email_from[:35]
                 email_date = msg['date']
                 # email_body = str(msg.get_payload(decode=True))
                 if msg.is_multipart():
-                    for part in msg.get_payload():
-                        email_body = part.get_payload()
+                    for part in msg.walk():
+                        # email_body = part.get_payload()
                         ctype = part.get_content_type()
                         cdispo = str(part.get('Content-Disposition'))
 
-                        '''if ctype == 'text/plain' or 'application' not in cdispo:
-                            email_body = "text/plain"'''
-                        '''elif "attachment" in cdispo:
+                        if ctype == 'text/html' or 'application' in cdispo:
+                            email_body = part.get_payload(decode=True).decode()
+                        elif "attachment" in cdispo:
                             filename = part.get_filename()
                             if filename:
-                                if not os.path.isdir(email_subject):
-                                    os.mkdir(email_subject)
-                                filepath = os.path.join(email_subject, filename)
-                                open(filepath, "wb").write(part.get_payload(decode=True))'''
+                                if not os.path.isdir('static'):
+                                    os.mkdir('static')
+                                filepath = os.path.join('static', filename)
+                                open(filepath, "wb").write(part.get_payload(decode=True))
+                                email_body += "<img src=\"" + filepath + "\">\n"
 
                 else:
                     # ctype = part.get_content_type()
-                    email_body = msg.get_payload(decode=True)
-                    '''if ctype == "text/plain":
-                        print(msg_body)'''
+                    email_body = msg.get_payload(decode=True).decode()
 
                 index -= 1
 
@@ -345,19 +343,19 @@ def loadInbox():
             "<div class=\"text-left\" style=\" overflow: auto; display: none; position: absolute; width: 50%; height: 50%; left: 25%; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" id=\"email")
         text += str(index + 1) + "\">\n"
         text += (
+
             "<h5>From: "
         )
         text += email_from + "</h5><br>\n"
         text += "<h5>Subject: " + email_subject + "</h5>\n"
-        text += "<h6>Date: " + email_date + "</h6><br>\n"
-        text += "<h6>" + str(email_body) + "</h6><br>\n"
+        text += "<h6>Date: " + email_date + "</h6>\n"
+        text += "" + email_body + "\n"
         text += (
             "<button class=\"btn btn-primary\" style=\"position: absolute; right: 0; bottom: 0; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
         )
         text += str(index + 1) + ("()\">Cancel</button>\n"
-                                  "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\"openForm('" + email_subject + "' , `" + str(
-            email_body) + "`);\">Forward</button>\n"
-                          "</div>\n")
+                                  "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "`);\'>Forward</button>\n"
+                                                                                                                                                                                                                      "</div>\n")
         text += (
             "<script>\n"
             "function openEmail")
@@ -392,7 +390,7 @@ def loadInbox():
 
 
             "<label for=\"msgbody\" class=\"sr-only\">Message Body</label>\n"
-            "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"></textarea>\n"
+            "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"><script></textarea>\n"
 
             "<label for=\"attachment\" class=\"sr-only\">Attachment</label>\n"
             "<input type=\"file\" name=\"attachment\" id=\"attachment\" class=\"form-control\" placeholder=\"Attachment (optional)\">\n"
@@ -408,23 +406,23 @@ def loadInbox():
             "if (b){\n"
             "var forward = '---------Forwarded message ---------- <br>';\n"
             "var date = 'Date: " + email_date + "<br>';\n"
-                                                "var from = 'From: " + email_from + "<br>';\n"
-                                                                                    "var subject = 'Subject: " + email_subject + "<br>';\n"
-                                                                                                                                 "var to = 'To: " + userEmail + "<br>';\n"
-                                                                                                                                                                "var forward = forward.concat(from, date, subject, to, b);\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "CKEDITOR.instances.msgbody.setData(forward);\n"
-                                                                                                                                                                "document.getElementById(\"subject\").value = s; \n"
-                                                                                                                                                                "document.getElementById(\"myForm\").style.display = \"block\";\n"
-                                                                                                                                                                "b = '';\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "function closeForm() {\n"
+            "var from = 'From: " + email_from + "<br>';\n"
+            "var subject = 'Subject: " + email_subject + "<br>';\n"
+            "var to = 'To: " + userEmail + "<br>';\n"
+            "var forward = forward.concat(from, date, subject, to, b);\n"
+            "}\n"
+            "CKEDITOR.instances.msgbody.setData(forward);\n"
+            "document.getElementById(\"subject\").value = s; \n"
+            "document.getElementById(\"myForm\").style.display = \"block\";\n"
+            "b = '';\n"
+            "}\n"
+            "function closeForm() {\n"
 
-                                                                                                                                                                "document.getElementById(\"myForm\").style.display = \"none\";\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "</script>\n"
-                                                                                                                                                                "</body>\n"
-                                                                                                                                                                "</html>\n")
+            "document.getElementById(\"myForm\").style.display = \"none\";\n"
+            "}\n"
+            "</script>\n"
+            "</body>\n"
+            "</html>\n")
 
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(text)
@@ -447,4 +445,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 2 and str(sys.argv[1]) == "travisTest":
         travisTest()
 
-    app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
+app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
