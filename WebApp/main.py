@@ -4,7 +4,6 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
-from email.header import decode_header
 import email
 import sys
 import os
@@ -75,89 +74,6 @@ def inbox():
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
-    '''if request.method == 'POST':
-        # create an IMAP4 class with SSL
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
-        # authenticate
-        imap.login(userEmail, userPassword)
-        imap.select('Inbox')
-        type, messages = imap.search(None, 'ALL')
-        numEmails = len(messages[0].split())
-        for i in range(numEmails):
-            if request.form.get(str(i)):
-                typ, data = imap.fetch(str(i), '(RFC822)')
-                for response_part in data:
-                    if isinstance(response_part, tuple):
-                        msg = email.message_from_string(response_part[1].decode('latin1'))
-                        email_subject = msg['subject']
-                        if msg['subject'] != None:
-                            email_subject = msg['subject']
-                        email_from = msg['from']
-                        email_date = msg['date']
-                        email_body = msg.get_payload()
-                        text = "<p>Sender: " + email_from + "</p>\n"
-                        text += "<p>Subject: " + email_subject + "</p>\n"
-                        text += "<p>Date: " + email_date + "</p>\n"
-                        if len(email_body) == 0 or len(email_body) == 1: # *ELI* will work on this
-                            text += "<p>Message: " + email_body + "</p>" # need to check if body
-                        else:                                            # is a list.
-                            print("too long to display")
-                            print(len(email_body))
-                        file = open("templates/displayEmail.html", 'w')
-                        file.write(text)
-                        file.close()
-                return render_template('displayEmail.html')
-            elif request.form.get('search'):
-                userSearch = request.form.get('search')  # requests the object with name 'search'
-                print(userSearch)
-                return render_template('/SearchResults.html')
-    else:'''
-    loadInbox()
-    return render_template('inbox.html')  # renders inbox.html until form is submitted
-
-
-@app.route('/sendmail', methods=['GET', 'POST'])
-def sendMail():
-    userInfoFile = open("userCredentials.txt", 'r')
-    userEmail = userInfoFile.readline()
-    userPassword = userInfoFile.readline()
-    userInfoFile.close()
-    print("Inside sendmail route")
-
-    if request.method == 'POST':
-        newMessage = MIMEMultipart()
-        newMessage['To'] = request.form['toemail']
-        newMessage['Subject'] = request.form['subject']
-        newMessage['From'] = userEmail
-        body = MIMEText(request.form['msgbody'], 'html', 'utf-8')
-        body.add_header('Content-Disposition', 'text/html')
-
-        newMessage.attach(body)
-
-        print(newMessage)
-        image = request.files["attachment"]
-        if image.filename != "":
-            rootPath = os.path.dirname(os.path.abspath("main.py"))
-            imageUploads = "imageUploads"
-            uploadImagesPath = os.path.join(rootPath, imageUploads)
-            if os.path.exists("imageUploads") == False:
-                os.mkdir(uploadImagesPath)
-            app.config["IMAGE_UPLOADS"] = uploadImagesPath
-            image.save(os.path.join(app.config["IMAGE_UPLOADS"], image.filename))
-            file = open(os.path.join(app.config["IMAGE_UPLOADS"], image.filename), "rb")
-            fileData = file.read()
-            if '.pdf' in image.filename:
-                newMessage.add_attachment(fileData, maintype="application", subtype="pdf")
-            elif '.txt' in image.filename:
-                newMessage.add_attachment(fileData)
-            elif '.png' in image.filename or '.gif' in image.filename:
-                print("png")
-                image_type = imghdr.what(file.name)
-                att = MIMEImage(fileData)
-                att.add_header('Content-Disposition', 'attachment', filename=image.filename)
-                newMessage.attach(att)
-        return sendEmail(newMessage)
-
     if request.form.get('search'):
         userSearch = request.form.get('search')  # requests the object with name 'search'
         file = open("templates/SearchResults.html", 'w')
@@ -188,15 +104,73 @@ def sendMail():
                         text += "<p>Subject: " + varSubj + "</p>\n"
                         text += "<p>Date: " + email_date + "</p>\n"
                         text += "Body: "
-                        for part in email_body:
-                            text += str(part)
+                        if msg.is_multipart():
+                            for part in msg.walk():
+                                ctype = part.get_content_type()
+                                cdispo = str(part.get('Content-Disposition'))
+
+                                if ctype == 'text/html' or 'application' in cdispo:
+                                    text += part.get_payload(decode=True).decode()
+                                elif "attachment" in cdispo:
+                                    filename = part.get_filename()
+                                    if filename:
+                                        if not os.path.isdir('static'):
+                                            os.mkdir('static')
+                                        filepath = os.path.join('static', filename)
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        text += "<img src=\"" + filepath + "\">\n"
+
                         text += "<p> -----------------------------------------<p>\n\n\n"
 
                         file = open("templates/SearchResults.html", 'a')
                         file.write(text)
                         file.close()
+        return render_template('/SearchResults.html')
 
-                        return render_template('/SearchResults.html')
+    loadInbox()
+    return render_template('inbox.html')  # renders inbox.html until form is submitted
+
+
+@app.route('/sendmail', methods=['GET', 'POST'])
+def sendMail():
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userInfoFile.close()
+
+    if request.method == 'POST':
+        newMessage = MIMEMultipart()
+        newMessage['To'] = request.form['toemail']
+        newMessage['Subject'] = request.form['subject']
+        newMessage['From'] = userEmail
+        body = MIMEText(request.form['msgbody'], 'html', 'utf-8')
+        body.add_header('Content-Disposition', 'text/html')
+
+        newMessage.attach(body)
+
+        image = request.files["attachment"]
+        if image.filename != "":
+            rootPath = os.path.dirname(os.path.abspath("main.py"))
+            imageUploads = "imageUploads"
+            uploadImagesPath = os.path.join(rootPath, imageUploads)
+            if os.path.exists("imageUploads") == False:
+                os.mkdir(uploadImagesPath)
+            app.config["IMAGE_UPLOADS"] = uploadImagesPath
+            image.save(os.path.join(app.config["IMAGE_UPLOADS"], image.filename))
+            file = open(os.path.join(app.config["IMAGE_UPLOADS"], image.filename), "rb")
+            fileData = file.read()
+            if '.pdf' in image.filename:
+                newMessage.add_attachment(fileData, maintype="application", subtype="pdf")
+            elif '.txt' in image.filename:
+                txt = MIMEText(fileData.decode())
+                newMessage.attach(txt)
+            elif '.png' in image.filename or '.gif' in image.filename:
+                image_type = imghdr.what(file.name)
+                att = MIMEImage(fileData)
+                att.add_header('Content-Disposition', 'attachment', filename=image.filename)
+                newMessage.attach(att)
+        return sendEmail(newMessage)
+
     else:
         return render_template("/sendmail.html")
 
@@ -317,12 +291,10 @@ def loadInbox():
                 email_date = msg['date']
                 # email_body = str(msg.get_payload(decode=True))
                 if msg.is_multipart():
-                    print("true")
                     for part in msg.walk():
                         # email_body = part.get_payload()
                         ctype = part.get_content_type()
                         cdispo = str(part.get('Content-Disposition'))
-                        print("Type: ", ctype, "  Cdispo: ", cdispo)
 
                         if ctype == 'text/html' or 'application' in cdispo:
                             email_body = part.get_payload(decode=True).decode()
@@ -338,8 +310,6 @@ def loadInbox():
                 else:
                     # ctype = part.get_content_type()
                     email_body = msg.get_payload(decode=True).decode()
-                    '''if ctype == "text/plain":'''
-                    print(msg.is_multipart())
 
                 index -= 1
 
@@ -436,23 +406,23 @@ def loadInbox():
             "if (b){\n"
             "var forward = '---------Forwarded message ---------- <br>';\n"
             "var date = 'Date: " + email_date + "<br>';\n"
-                                                "var from = 'From: " + email_from + "<br>';\n"
-                                                                                    "var subject = 'Subject: " + email_subject + "<br>';\n"
-                                                                                                                                 "var to = 'To: " + userEmail + "<br>';\n"
-                                                                                                                                                                "var forward = forward.concat(from, date, subject, to, b);\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "CKEDITOR.instances.msgbody.setData(forward);\n"
-                                                                                                                                                                "document.getElementById(\"subject\").value = s; \n"
-                                                                                                                                                                "document.getElementById(\"myForm\").style.display = \"block\";\n"
-                                                                                                                                                                "b = '';\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "function closeForm() {\n"
+            "var from = 'From: " + email_from + "<br>';\n"
+            "var subject = 'Subject: " + email_subject + "<br>';\n"
+            "var to = 'To: " + userEmail + "<br>';\n"
+            "var forward = forward.concat(from, date, subject, to, b);\n"
+            "}\n"
+            "CKEDITOR.instances.msgbody.setData(forward);\n"
+            "document.getElementById(\"subject\").value = s; \n"
+            "document.getElementById(\"myForm\").style.display = \"block\";\n"
+            "b = '';\n"
+            "}\n"
+            "function closeForm() {\n"
 
-                                                                                                                                                                "document.getElementById(\"myForm\").style.display = \"none\";\n"
-                                                                                                                                                                "}\n"
-                                                                                                                                                                "</script>\n"
-                                                                                                                                                                "</body>\n"
-                                                                                                                                                                "</html>\n")
+            "document.getElementById(\"myForm\").style.display = \"none\";\n"
+            "}\n"
+            "</script>\n"
+            "</body>\n"
+            "</html>\n")
 
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(text)
