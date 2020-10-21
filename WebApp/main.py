@@ -87,15 +87,23 @@ def inbox():
         imap.select('Inbox')
         type, messages = imap.search(None, 'ALL')
         numEmails = len(messages[0].split())
+        maxLoad = 5
+        toLoad = 0
+        if numEmails > maxLoad:
+            toLoad = maxLoad
+        else:
+            toLoad = numEmails
+        index = numEmails
 
-        for j in range(numEmails):
-            j += 1
-            type, data = imap.fetch(str(j), '(RFC822)')
+        for i in range(toLoad):
+            currentEmail = str(index).encode()
+            typ, data = imap.fetch(currentEmail, '(RFC822)')
             for response_part in data:
                 if isinstance(response_part, tuple):
                     msg = email.message_from_string(response_part[1].decode('latin1'))
                     varSubj = msg['subject']
-                    if varSubj == userSearch:
+                    varSender = msg["from"]
+                    if userSearch in varSubj or userSearch in varSender:
                         # Record the matched email data and append it to the html file
                         email_from = msg['from']
                         email_date = msg['date']
@@ -125,6 +133,7 @@ def inbox():
                         file = open("templates/SearchResults.html", 'a')
                         file.write(text)
                         file.close()
+            index -=1
         return render_template('/SearchResults.html')
 
     loadInbox()
@@ -311,7 +320,7 @@ def loadInbox():
                     # ctype = part.get_content_type()
                     email_body = msg.get_payload(decode=True).decode()
 
-                index -= 1
+        index -= 1
 
         text += (  # appending sender, subject, and time to inbox.html file
             # "<table class=\"table\">\n"
