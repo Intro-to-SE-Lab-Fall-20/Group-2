@@ -107,11 +107,41 @@ def inbox():
                         file.close()
                 return render_template('displayEmail.html')
 
-            elif request.form.get('search'):
-                userSearch = request.form.get('search')  # requests the object with name 'search'
+    if request.form.get('search'):
+        userSearch = request.form.get('search')  # requests the object with name 'search'
+        file = open("templates/SearchResults.html", 'w')
+        file.write("<p><p>\n")
+        file.close()
+        for j in range(numEmails):
+            j += 1
 
-                print(userSearch)
-                return render_template('/SearchResults.html')
+            type, data = imap.fetch(str(j), '(RFC822)')
+            for response_part in data:
+
+                if isinstance(response_part, tuple):
+                    msg = email.message_from_string(response_part[1].decode('latin1'))
+                    varSubj = msg['subject']
+                    #print(varSubj)
+
+                if varSubj == userSearch:
+                    #print("This is a test")
+                    #Record the matched email data and append it to the html file
+                    email_from = msg['from']
+                    email_date = msg['date']
+                    email_body = msg.get_payload()
+                    #text = "<p> -----------------------------------------<p>\n"
+                    text = "<p>Sender: " + email_from + "</p>\n"
+                    text += "<p>Subject: " + varSubj + "</p>\n"
+                    text += "<p>Date: " + email_date + "</p>\n"
+                    text += "Body: "
+                    for part in email_body:
+                        text += str(part)
+                    text+="<p> -----------------------------------------<p>\n\n\n"
+                    file = open("templates/SearchResults.html", 'a')
+                    file.write(text)
+                    file.close()
+
+        return render_template('/SearchResults.html') 
 
     else:
         loadInbox()
