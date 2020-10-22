@@ -4,13 +4,19 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
+from email.header import decode_header
 import email
 import sys
 import os
-import shutil  # removes directory of uploaded files
+import shutil # removes directory of uploaded files
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+import time
+
+
+
 
 app = Flask(__name__)
 emailport = 465  # Gmail port
@@ -42,12 +48,11 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
 
-    typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)')  # reads most recent email
+    typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)') # reads most recent email
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
-    if time in body:  # if email time is same as the time the test email was sent, test passes
+    if time in body: # if email time is same as the time the test email was sent, test passes
         exit()
-
 
 # Web Pages - first pages are commented, the rest follow similar functionality
 @app.route('/', methods=['GET', 'POST'])
@@ -66,7 +71,6 @@ def login():
     else:
         return render_template('login.html')  # renders login.html until form is submitted
 
-
 @app.route('/inbox', methods=['POST', 'GET'])
 def inbox():
     userInfoFile = open("userCredentials.txt", 'r')
@@ -76,69 +80,13 @@ def inbox():
 
     if request.form.get('search'):
         userSearch = request.form.get('search')  # requests the object with name 'search'
-        file = open("templates/SearchResults.html", 'w')
-        file.write("<p><p>\n")
-        file.close()
+        loadInbox(userSearch)
+        userSearch = None
 
-        # create an IMAP4 class with SSL
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
-        # authenticate
-        imap.login(userEmail, userPassword)
-        imap.select('Inbox')
-        type, messages = imap.search(None, 'ALL')
-        numEmails = len(messages[0].split())
-        maxLoad = 5
-        toLoad = 0
-        if numEmails > maxLoad:
-            toLoad = maxLoad
-        else:
-            toLoad = numEmails
-        index = numEmails
-
-        for i in range(toLoad):
-            currentEmail = str(index).encode()
-            typ, data = imap.fetch(currentEmail, '(RFC822)')
-            for response_part in data:
-                if isinstance(response_part, tuple):
-                    msg = email.message_from_string(response_part[1].decode('latin1'))
-                    varSubj = msg['subject']
-                    varSender = msg["from"]
-                    if userSearch in varSubj or userSearch in varSender:
-                        # Record the matched email data and append it to the html file
-                        email_from = msg['from']
-                        email_date = msg['date']
-                        email_body = msg.get_payload()
-                        text = "<p>Sender: " + email_from + "</p>\n"
-                        text += "<p>Subject: " + varSubj + "</p>\n"
-                        text += "<p>Date: " + email_date + "</p>\n"
-                        text += "Body: "
-                        if msg.is_multipart():
-                            for part in msg.walk():
-                                ctype = part.get_content_type()
-                                cdispo = str(part.get('Content-Disposition'))
-
-                                if ctype == 'text/html' or 'application' in cdispo:
-                                    text += part.get_payload(decode=True).decode()
-                                elif "attachment" in cdispo:
-                                    filename = part.get_filename()
-                                    if filename:
-                                        if not os.path.isdir('static'):
-                                            os.mkdir('static')
-                                        filepath = os.path.join('static', filename)
-                                        open(filepath, "wb").write(part.get_payload(decode=True))
-                                        text += "<img src=\"" + filepath + "\">\n"
-
-                        text += "<p> -----------------------------------------<p>\n\n\n"
-
-                        file = open("templates/SearchResults.html", 'a')
-                        file.write(text)
-                        file.close()
-            index -=1
-        return render_template('/SearchResults.html')
-
-    loadInbox()
+    else:
+       
+        loadInbox(None)
     return render_template('inbox.html')  # renders inbox.html until form is submitted
-
 
 @app.route('/sendmail', methods=['GET', 'POST'])
 def sendMail():
@@ -146,6 +94,7 @@ def sendMail():
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userInfoFile.close()
+    print("Inside sendmail route")
 
     if request.method == 'POST':
         newMessage = MIMEMultipart()
@@ -156,7 +105,7 @@ def sendMail():
         body.add_header('Content-Disposition', 'text/html')
 
         newMessage.attach(body)
-
+        
         image = request.files["attachment"]
         if image.filename != "":
             rootPath = os.path.dirname(os.path.abspath("main.py"))
@@ -169,19 +118,24 @@ def sendMail():
             file = open(os.path.join(app.config["IMAGE_UPLOADS"], image.filename), "rb")
             fileData = file.read()
             if '.pdf' in image.filename:
-                newMessage.add_attachment(fileData, maintype="application", subtype="pdf")
+                att = MIMEApplication(fileData, _subtype="pdf")
+                att.add_header('Content-Disposition', 'attachment', filename=image.filename)
+                newMessage.attach(att)
             elif '.txt' in image.filename:
-                txt = MIMEText(fileData.decode())
-                newMessage.attach(txt)
+                att = MIMEText(fileData.decode())
+                att.add_header('Content-Disposition', 'attachment', filename=image.filename)
+                newMessage.attach(att)
+                #newMessage.add_attachment(fileData)
             elif '.png' in image.filename or '.gif' in image.filename:
+                print("png")
                 image_type = imghdr.what(file.name)
                 att = MIMEImage(fileData)
                 att.add_header('Content-Disposition', 'attachment', filename=image.filename)
                 newMessage.attach(att)
         return sendEmail(newMessage)
-
     else:
         return render_template("/sendmail.html")
+                
 
 
 @app.route('/logout')
@@ -189,12 +143,13 @@ def logout():
     file = open('userCredentials.txt', 'r+')
     file.truncate(0)
     file.close()
-    # os.remove('userCredentials.txt')
+    #os.remove('userCredentials.txt')
 
     file = open('templates/inbox.html', 'r+')
     file.truncate(0)
     file.close()
-    # os.remove('templates/inbox.html')
+    #os.remove('templates/inbox.html')
+
 
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
@@ -211,56 +166,50 @@ def authenticate():
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
 
-
-def loadInbox():
+def loadInbox(search):
+    now = time.time()
     userInfoFile = open("userCredentials.txt", 'r')
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
-    # create an IMAP4 class with SSL
-    imap = imaplib.IMAP4_SSL("imap.gmail.com")
-    # authenticate
-    imap.login(userEmail, userPassword)
-    imap.select('Inbox')
-    type, messages = imap.search(None, 'ALL')
-    numEmails = len(messages[0].split())
     text = (
-        "<!doctype html>\n"
-        "<html lang=\"en\">\n"
-        "<head>\n"
+    "<!doctype html>\n"
+    "<html lang=\"en\">\n"
+    "<head>\n"
 
-        "<meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">\n"
+    "<meta charset=\"utf-8\">\n"
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">\n"
 
-        "<title>Email Client</title>\n"
+    "<title>Email Client</title>\n"
 
-        "<!-- Bootstrap core CSS -->\n"
-        "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
+    "<!-- Bootstrap core CSS -->\n"
+    "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
 
-        "<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
+    "<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
 
-        "<script src=\"//cdn.ckeditor.com/4.14.1/basic/ckeditor.js\"></script>\n"
-        "</head>\n"
-        "<body class=\"text-center\">\n"
-        "<div class=\"container\">\n"
-        "<form action=\"logout\">"
-        "<button class=\"btn btn-primary\" style=\"right: 0;\" type=\"submit\">Logout</button>\n"
-        "</form>\n"
-        "<h1>Inbox</h1>\n"
-        "<form class=\"inbox\" method=\"POST\">\n"
-        "<label for=\"searchInbox\" class=\"sr-only\">Search Term</label>\n"
-        "<input type=\"search\" name= \"search\" id=\"searchInbox\" class=\"form-control\" placeholder=\"Search Inbox\" required autofocus> \n"
-        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Search Inbox</button> \n"
-        "</form>"
-        "<table class=\"table\">\n"
-        "<thead class=\"thead-dark\">\n"
-        "<tr>\n"
-        "<th scope=\"col\">Sender</th>\n"
-        "<th scope=\"col\">Subject</th>\n"
-        "<th scope=\"col\">Time</th>\n"
-        "</tr>\n"
-        "</thead>\n"
+    "<script src=\"//cdn.ckeditor.com/4.14.1/basic/ckeditor.js\"></script>\n"
+    "</head>\n"
+    "<body class=\"text-center\">\n"
+    "<div class=\"container\">\n"
+    "<form action=\"logout\">"
+    "<button class=\"btn btn-primary\" style=\"right: 0;\" type=\"submit\">Logout</button>\n"
+    "</form>\n"
+    "<h1>Inbox</h1>\n"
+    "<form class=\"inbox\" method=\"POST\">\n"
+    "<label for=\"searchInbox\" class=\"sr-only\">Search Term</label>\n"
+    "<input type=\"search\" name= \"search\" id=\"searchInbox\" class=\"form-control\" placeholder=\"Search Inbox\" required autofocus> \n"
+    "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Search Inbox</button> \n"
+    "</form>"
+    "<table class=\"table\">\n"
+    "<thead class=\"thead-dark\">\n"
+    "<tr>\n"
+    "<th scope=\"col\">Sender</th>\n"
+    "<th scope=\"col\">Subject</th>\n"
+    "<th scope=\"col\">Time</th>\n"
+    "</tr>\n"
+    "</thead>\n"
+    #"</table>\n"
     )
 
     userInfoFile = open("userCredentials.txt", 'r')
@@ -277,13 +226,15 @@ def loadInbox():
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 5
+    maxLoad = 10
     toLoad = 0
     if numEmails > maxLoad:
         toLoad = maxLoad
     else:
         toLoad = numEmails
     index = numEmails
+    if search != None:
+        print(search)
 
     for messageNum in range(toLoad):  # iterating through all messages
         currentEmail = str(index).encode()
@@ -293,41 +244,131 @@ def loadInbox():
                 msg = email.message_from_bytes(response_part[1])
                 email_subject = msg['subject']
                 if email_subject != None and len(email_subject) > 25:
-                    email_subject = email_subject[:25] + "..."
+                    subject_display = email_subject[:25] + "..."
                 email_from = msg['from']
                 if len(email_from) > 35:
                     email_from = email_from[:35]
                 email_date = msg['date']
-                # email_body = str(msg.get_payload(decode=True))
-                if msg.is_multipart():
-                    for part in msg.walk():
-                        # email_body = part.get_payload()
-                        ctype = part.get_content_type()
-                        cdispo = str(part.get('Content-Disposition'))
+                #email_body = str(msg.get_payload(decode=True))
+                if search != None:
+                    if search.lower() in email_subject.lower() or search.lower() in email_from.lower():
+                        if msg.is_multipart():
 
-                        if ctype == 'text/html' or 'application' in cdispo:
-                            email_body = part.get_payload(decode=True).decode()
-                        elif "attachment" in cdispo:
-                            filename = part.get_filename()
-                            if filename:
-                                if not os.path.isdir('static'):
-                                    os.mkdir('static')
-                                filepath = os.path.join('static', filename)
-                                open(filepath, "wb").write(part.get_payload(decode=True))
-                                email_body += "<img src=\"" + filepath + "\">\n"
+                            for part in msg.walk():
+                                email_att = ""
+                                ctype = part.get_content_type()
+                                cdispo = str(part.get('Content-Disposition'))
+                                
 
+
+                                if ctype == 'text/html' or 'application' in cdispo:
+                                    email_body = part.get_payload(decode=True).decode()
+                                    continue
+                                elif "attachment" in cdispo:
+                                    filename = part.get_filename()
+                                    if '.pdf' in filename:
+                                        if not os.path.isdir('static'):
+                                            os.mkdir('static')
+                                        filepath = os.path.join('static', filename)
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
+                                        continue
+                                    elif '.txt' in filename:
+                                        if not os.path.isdir('static'):
+                                            os.mkdir('static')
+                                        filepath = os.path.join('static', filename)
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        email_att += (
+                                            "<p><a href=\"static/" + filename + "\" download>\n"
+                                            + filename + "</a></p>\n"
+                                            )
+                                        continue
+
+                                    elif '.png' or '.jpg' or '.gif' in filename:
+                                        if not os.path.isdir('static'):
+                                            os.mkdir('static')
+                                        filepath = os.path.join('static', filename)
+                                        open(filepath, "wb").write(part.get_payload(decode=True))
+                                        email_att += (
+                                            "<p><a href=\"static/" + filename + "\" download>\n"
+                                            "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"50%\" height=\"50%\" alt=\"image\"><br>\n"
+                                            + filename + "</a></p>\n"
+                                            )
+                                        continue
+
+                        else:
+                            email_body = msg.get_payload(decode=True).decode()
+                        print("found an email!")
+                        match = True
+                        continue
+
+                        
+                        
+                    else:
+                        match = False
+                        continue
+                    
+                        
                 else:
-                    # ctype = part.get_content_type()
-                    email_body = msg.get_payload(decode=True).decode()
+                    match = True
+                    if msg.is_multipart():
 
-        index -= 1
+                        for part in msg.walk():
+                            email_att = ""
+                            ctype = part.get_content_type()
+                            cdispo = str(part.get('Content-Disposition'))
+                            
+
+
+                            if ctype == 'text/html' or 'application' in cdispo:
+                                email_body = part.get_payload(decode=True).decode()
+                                continue
+                            elif "attachment" in cdispo:
+                                filename = part.get_filename()
+                                if '.pdf' in filename:
+                                    if not os.path.isdir('static'):
+                                        os.mkdir('static')
+                                    filepath = os.path.join('static', filename)
+                                    open(filepath, "wb").write(part.get_payload(decode=True))
+                                    email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
+                                    continue
+                                elif '.txt' in filename:
+                                    if not os.path.isdir('static'):
+                                        os.mkdir('static')
+                                    filepath = os.path.join('static', filename)
+                                    open(filepath, "wb").write(part.get_payload(decode=True))
+                                    email_att += (
+                                        "<p><a href=\"static/" + filename + "\" download>\n"
+                                        + filename + "</a></p>\n"
+                                        )
+                                    continue
+
+                                elif '.png' or '.jpg' or '.gif' in filename:
+                                    if not os.path.isdir('static'):
+                                        os.mkdir('static')
+                                    filepath = os.path.join('static', filename)
+                                    open(filepath, "wb").write(part.get_payload(decode=True))
+                                    email_att += (
+                                        "<p><a href=\"static/" + filename + "\" download>\n"
+                                        "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"50%\" height=\"50%\" alt=\"image\"><br>\n"
+                                        + filename + "</a></p>\n"
+                                        )
+                                    continue
+
+                    else:
+                        email_body = msg.get_payload(decode=True).decode()
+                        continue
+                    
+        index-=1
+        if match == False:
+            continue
 
         text += (  # appending sender, subject, and time to inbox.html file
-            # "<table class=\"table\">\n"
             "<tr onclick=\"openEmail")
-        text += str(index + 1) + ("();\">\n"
-                                  "<td>"
-                                  )
+        text += str(index+1) + ("();\">\n"
+            "<td>"
+            )
+            
 
         text += email_from
 
@@ -335,7 +376,9 @@ def loadInbox():
             "</td>\n"
             "<td>")
 
-        if email_subject != None:
+        if email_subject == None:
+            text += subject_display
+        else:
             text += email_subject
 
         text += (
@@ -346,96 +389,108 @@ def loadInbox():
 
         text += (
             "</td>\n"
-
-        )
-        text += (  # add div here
-            "<div class=\"text-left\" style=\" overflow: auto; display: none; position: absolute; width: 50%; height: 50%; left: 25%; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" id=\"email")
-        text += str(index + 1) + "\">\n"
+            "</tr>\n"
+            )
+        text += (          #add div here
+            "<div style=\" display: none; position: fixed; padding-top: 200px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"email")
+        text += str(index+1) + "\">\n"
         text += (
-
+            "<div class=\"text-left\" style=\" position: relative; margin: auto; width: 600px; height: 700px; overflow: auto; background-color: white; padding: 10px; padding-bottom: 0px; padding-right: 0px; border-style: outset; border-color: #007bff;\">"
+            "<div style=\"margin: auto; border: 3px solid #007bff;\">"
             "<h5>From: "
-        )
-        text += email_from + "</h5><br>\n"
-        text += "<h5>Subject: " + email_subject + "</h5>\n"
-        text += "<h6>Date: " + email_date + "</h6>\n"
-        text += "" + email_body + "\n"
+            )
+        text += email_from + "<br>\n"
+        text += "Subject: " + email_subject + "</h5>\n"
+        text += "<h6>Date: " + email_date + "</h6></div><br>\n"
+        text += "<div style=\"margin: auto; border: 3px solid #007bff; height: 600px; padding: 10px;\">"
+        text += email_body + "\n"
+        if email_att: 
+            text += email_att
         text += (
-            "<button class=\"btn btn-primary\" style=\"position: absolute; right: 0; bottom: 0; margin: 5px;\" type=\"button\" onclick=\"closeEmail"
-        )
-        text += str(index + 1) + ("()\">Cancel</button>\n"
-                                  "<button class=\"btn btn-primary\" style=\"position: absolute; right: 80px; bottom: 0; margin: 5px\" type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "`);\'>Forward</button>\n"
-                                                                                                                                                                                                                      "</div>\n")
+            "</div>\n"
+            "<div style=\"bottom: 0; left: 100%; position: sticky; height: 50px; width: 175px;\">\n"
+            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "` , `" + email_att + "`);\'>Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"margin: 2.5px;\" type=\"button\" onclick=\"closeEmail"
+            )
+        text += str(index+1) + ("()\">Cancel</button>\n")
+        text +=(
+            "</div>\n"
+            "</div>\n"
+            "</div>\n")
+        if 'Forward' in email_body:
+            text += "</div>\n"
         text += (
             "<script>\n"
             "function openEmail")
-        text += str(index + 1) + ("(){\n"
-                                  "document.getElementById(\"email")
-        text += str(index + 1) + ("\").style.display = \"block\";\n"
-                                  "}\n"
-                                  "function closeEmail")
-        text += str(index + 1) + ("() {\n"
-                                  "document.getElementById(\"email")
-        text += str(index + 1) + ("\").style.display = \"none\";\n"
-                                  "}\n"
-                                  "</script>\n")
-        text += (
-            "</tr>\n"
+        text += str(index+1) + ("(){\n"
+            "document.getElementById(\"email")
+        text += str(index+1) + ("\").style.display = \"block\";\n"
+            "}\n"
+            "function closeEmail")
+        text += str(index+1) + ("() {\n"
+            "document.getElementById(\"email")
+        text += str(index+1) + ("\").style.display = \"none\";\n"
+            "}\n"
+            "</script>\n")
 
-        )
 
     text += (
+        
+        "</table>\n"
+        "<br><br>"
+        "<button class=\"btn btn-lg btn-primary btn-block\" name=\"sendMail\" onclick=\"openForm('','')\" value=\"sendMail\">Send mail</button>\n"
+        "<div style=\" display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"myForm\">\n"
+        "<form action=\"sendmail\" style=\" position: relative; margin: auto; width: 800px; background-color: white; padding: 10px; border-style: outset; border-color: #007bff;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
+        "<h1>Email Client</h1>\n"
+        "<h1 class=\"h3 mb-3 font-weight-normal\">Send Email</h1>\n"
+        "<label for=\"sendto\" class=\"sr-only\">To:</label>\n"
+        "<input type=\"email\" name= \"toemail\" id=\"sendto\" class=\"form-control\" placeholder=\"To\" required autofocus>\n"
+        "<label for=\"subject\" class=\"sr-only\">Subject</label>\n"
+        "<input type=\"text\" name=\"subject\" id=\"subject\" class=\"form-control\" placeholder=\"Subject\" required>\n"
 
-            "</table>\n"
-            "<br><br>"
-            "<button class=\"btn btn-lg btn-primary btn-block\" name=\"sendMail\" onclick=\"openForm('','')\" value=\"sendMail\">Send mail</button>\n"
-            "<div style=\"  bottom: 500px; display: none; position: relative; align-items: center;\" id=\"myForm\">\n"
-            "<form action=\"sendmail\" style=\" margin: auto; width: 800px; background-color: white; padding: 10px; border-style: outset; border-color: blue;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
-            "<h1>Email Client</h1>\n"
-            "<h1 class=\"h3 mb-3 font-weight-normal\">Send Email</h1>\n"
-            "<label for=\"sendto\" class=\"sr-only\">To:</label>\n"
-            "<input type=\"email\" name= \"toemail\" id=\"sendto\" class=\"form-control\" placeholder=\"To\" required autofocus>\n"
-            "<label for=\"subject\" class=\"sr-only\">Subject</label>\n"
-            "<input type=\"text\" name=\"subject\" id=\"subject\" class=\"form-control\" placeholder=\"Subject\" required>\n"
 
+        "<label for=\"msgbody\" class=\"sr-only\">Message Body</label>\n"
+        "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"><script></script></textarea>\n"
 
-            "<label for=\"msgbody\" class=\"sr-only\">Message Body</label>\n"
-            "<textarea name=\"msgbody\" id=\"msgbody\" placeholder=\"Message Body\" required rows=\"10\" cols=\"10\"><script></textarea>\n"
-
-            "<label for=\"attachment\" class=\"sr-only\">Attachment</label>\n"
-            "<input type=\"file\" name=\"attachment\" id=\"attachment\" class=\"form-control\" placeholder=\"Attachment (optional)\">\n"
-            "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Send</button>\n"
-            "<button class=\"btn btn-lg btn-primary btn-block\" type=\"button\" onclick=\"closeForm()\">Cancel</button>\n"
-            "</form>\n"
-            "</div>\n"
-            "<script>\n"
-
-            "function openForm(s, b){\n"
-            "CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
-            "CKEDITOR.config.readOnly = false;\n"
-            "if (b){\n"
-            "var forward = '---------Forwarded message ---------- <br>';\n"
-            "var date = 'Date: " + email_date + "<br>';\n"
-            "var from = 'From: " + email_from + "<br>';\n"
-            "var subject = 'Subject: " + email_subject + "<br>';\n"
-            "var to = 'To: " + userEmail + "<br>';\n"
-            "var forward = forward.concat(from, date, subject, to, b);\n"
-            "}\n"
-            "CKEDITOR.instances.msgbody.setData(forward);\n"
-            "document.getElementById(\"subject\").value = s; \n"
-            "document.getElementById(\"myForm\").style.display = \"block\";\n"
-            "b = '';\n"
-            "}\n"
-            "function closeForm() {\n"
-
-            "document.getElementById(\"myForm\").style.display = \"none\";\n"
-            "}\n"
-            "</script>\n"
-            "</body>\n"
-            "</html>\n")
-
+        "<label for=\"attachment\" class=\"sr-only\">Attachment</label>\n"
+        "<input type=\"file\" name=\"attachment\" id=\"attachment\" class=\"form-control\" placeholder=\"Attachment (optional)\">\n"
+        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Send</button>\n"
+        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"button\" onclick=\"closeForm()\">Cancel</button>\n"
+        "</form>\n"
+        "</div>\n"
+        "<script>\n"
+        
+        "function openForm(s, b, a){\n"
+        "CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
+        "CKEDITOR.config.readOnly = false;\n"
+        "if (s || b || a){\n"
+        "var forward = '--------- Forwarded message ---------- <br>';\n"
+        "var date = 'Date: " + email_date + "<br>';\n"
+        "var from = 'From: " + email_from + "<br>';\n"
+        "var subject = 'Subject: " + email_subject + "<br>';\n"
+        "var to = 'To: " + userEmail + "<br>';\n"
+        "var att = a;\n"
+        "var forward = forward.concat(from, date, subject, to, b, a);\n"
+        "}\n"
+        "CKEDITOR.instances.msgbody.setData(forward);\n"
+        "document.getElementById(\"subject\").value = s; \n"
+        "document.getElementById(\"myForm\").style.display = \"block\";\n"
+        "b = '';\n"
+        "}\n"
+        "function closeForm() {\n"
+        
+        "document.getElementById(\"myForm\").style.display = \"none\";\n"
+        "}\n"
+        "</script>\n"
+        "</body>\n"
+        "</div>\n"
+        "</html>\n")
+    then = time.time()
+    print(then - now)
+    #timefile = open("timefile.txt", 'a+')
+    #timefile.write((str(then-now)) + " seconds" + "\n")
     htmlFile = open("templates/inbox.html", 'w')
     htmlFile.write(text)
-
 
 def sendEmail(newMessage):
     userInfoFile = open("userCredentials.txt", 'r')
@@ -454,4 +509,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 2 and str(sys.argv[1]) == "travisTest":
         travisTest()
 
-app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
+    app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
