@@ -14,7 +14,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 import time
-
+import webbrowser
+import socket
+import email.utils
+import datetime
 
 
 
@@ -78,14 +81,30 @@ def inbox():
     userPassword = userInfoFile.readline()
     userInfoFile.close()
 
+    userInfoFile = open("userCredentials.txt", 'r')
+    userEmail = userInfoFile.readline()
+    userPassword = userInfoFile.readline()
+    userEmail = userEmail[0:len(userEmail) - 1]
+    userPassword = userPassword[0:len(userPassword) - 1]
+    userInfoFile.close()
+
+    # create an IMAP4 class with SSL
+    imap = imaplib.IMAP4_SSL("imap.gmail.com")
+    # authenticate
+    imap.login(userEmail, userPassword)
+    imap.select('Inbox')
+    type, messages = imap.search(None, 'ALL')
+    numEmails = len(messages[0].split())
+    index = numEmails
+
     if request.form.get('search'):
-        userSearch = request.form.get('search')  # requests the object with name 'search'
-        loadInbox(userSearch)
-        userSearch = None
+        search = request.form.get('search')  # requests the object with name 'search'
+        loadInbox(search, index)
+        search = None
 
     else:
        
-        loadInbox(None)
+        loadInbox(None, index)
     return render_template('inbox.html')  # renders inbox.html until form is submitted
 
 @app.route('/sendmail', methods=['GET', 'POST'])
@@ -166,51 +185,65 @@ def authenticate():
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
         server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
 
-def loadInbox(search):
-    now = time.time()
-    userInfoFile = open("userCredentials.txt", 'r')
-    userEmail = userInfoFile.readline()
-    userPassword = userInfoFile.readline()
-    userInfoFile.close()
-
+def loadInbox(search, index):
+    if search == None:
+        search = ''
+        maxLoad = 10
+    else:
+        maxLoad = 20
     text = (
-    "<!doctype html>\n"
-    "<html lang=\"en\">\n"
-    "<head>\n"
 
-    "<meta charset=\"utf-8\">\n"
-    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">\n"
+        "<!doctype html>\n"
+        "<html lang=\"en\">\n"
+        "<head>\n"
 
-    "<title>Email Client</title>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">\n"
 
-    "<!-- Bootstrap core CSS -->\n"
-    "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
+        "<title>Email Client</title>\n"
 
-    "<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
+        "<!-- Bootstrap core CSS -->\n"
+        "<link rel=\"stylesheet\" href=\"https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css\" integrity=\"sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z\" crossorigin=\"anonymous\">\n"
+        "<link rel=\"stylesheet\" href=\"https://www.w3schools.com/w3css/4/w3.css\">"
+        "<link rel= \"stylesheet\" type= \"text/css\" href= \"{{ url_for('static',filename='styles/styles.css') }}\">\n"
 
-    "<script src=\"//cdn.ckeditor.com/4.14.1/basic/ckeditor.js\"></script>\n"
-    "</head>\n"
-    "<body class=\"text-center\">\n"
-    "<div class=\"container\">\n"
-    "<form action=\"logout\">"
-    "<button class=\"btn btn-primary\" style=\"right: 0;\" type=\"submit\">Logout</button>\n"
-    "</form>\n"
-    "<h1>Inbox</h1>\n"
-    "<form class=\"inbox\" method=\"POST\">\n"
-    "<label for=\"searchInbox\" class=\"sr-only\">Search Term</label>\n"
-    "<input type=\"search\" name= \"search\" id=\"searchInbox\" class=\"form-control\" placeholder=\"Search Inbox\" required autofocus> \n"
-    "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Search Inbox</button> \n"
-    "</form>"
-    "<table class=\"table\">\n"
-    "<thead class=\"thead-dark\">\n"
-    "<tr>\n"
-    "<th scope=\"col\">Sender</th>\n"
-    "<th scope=\"col\">Subject</th>\n"
-    "<th scope=\"col\">Time</th>\n"
-    "</tr>\n"
-    "</thead>\n"
-    #"</table>\n"
-    )
+        "<script src=\"//cdn.ckeditor.com/4.14.1/basic/ckeditor.js\">\n"
+        "</script>\n"
+        "<style>\n"
+        "tr:hover {background-color: DodgerBlue;}\n"
+        "</style>\n"
+        "</head>\n"
+        "<body class=\"text-center\">\n"
+        "<div class=\"container\">\n"
+        "<form action=\"logout\">"
+        "<button class=\"btn btn-primary\" style=\"right: 0;\" type=\"submit\">Logout</button>\n"
+        "</form>\n"
+        "<h1>Inbox</h1>\n"
+        "<form action=\"inbox\"method=\"POST\">\n"
+        "<input type=\"search\" name= \"search\" id=\"searchInbox\" class=\"form-control\" placeholder=\"Search Inbox\" required autofocus value=\"" + search + "\"> \n"
+
+        "<button class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Search Inbox</button> \n"
+        "</form>")
+
+    if request.form.get('search'):
+        text += (
+            "<form onsubmit=\"closeButton()\"action=\"inbox\" >\n"
+            "<button class=\"btn btn-lg btn-primary btn-block\" id=\"cancel\" type=\"submit\">Cancel Search</button> \n"
+            "</form>"
+            )
+
+    text += (
+
+        "<table class=\"table\">\n"
+        "<thead class=\"thead-dark\">\n"
+        "<tr>\n"
+        "<th scope=\"col\">Sender</th>\n"
+        "<th scope=\"col\">Subject</th>\n"
+        "<th scope=\"col\">Time</th>\n"
+        "</tr>\n"
+        "</thead>\n"
+        #"</table>\n"
+        )
 
     userInfoFile = open("userCredentials.txt", 'r')
     userEmail = userInfoFile.readline()
@@ -226,19 +259,19 @@ def loadInbox(search):
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-    maxLoad = 10
+
     toLoad = 0
     if numEmails > maxLoad:
         toLoad = maxLoad
     else:
         toLoad = numEmails
-    index = numEmails
-    if search != None:
-        print(search)
+    print(search)
+    
 
     for messageNum in range(toLoad):  # iterating through all messages
         currentEmail = str(index).encode()
         typ, data = imap.fetch(currentEmail, '(RFC822)')
+        email_att = ""
         for response_part in data:
             if isinstance(response_part, tuple):
                 msg = email.message_from_bytes(response_part[1])
@@ -248,9 +281,10 @@ def loadInbox(search):
                 email_from = msg['from']
                 if len(email_from) > 35:
                     email_from = email_from[:35]
-                email_date = msg['date']
-                #email_body = str(msg.get_payload(decode=True))
-                if search != None:
+                email_date = email.utils.parsedate_to_datetime(msg['date'])
+                email_date = email_date.strftime('%a, %d %b %y %I:%M%p')
+                filename = ''
+                if search != '':
                     if search.lower() in email_subject.lower() or search.lower() in email_from.lower():
                         if msg.is_multipart():
 
@@ -263,16 +297,17 @@ def loadInbox(search):
 
                                 if ctype == 'text/html' or 'application' in cdispo:
                                     email_body = part.get_payload(decode=True).decode()
-                                    continue
+                                    
                                 elif "attachment" in cdispo:
                                     filename = part.get_filename()
+                                    #print(filename)
                                     if '.pdf' in filename:
                                         if not os.path.isdir('static'):
                                             os.mkdir('static')
                                         filepath = os.path.join('static', filename)
                                         open(filepath, "wb").write(part.get_payload(decode=True))
                                         email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
-                                        continue
+                                        
                                     elif '.txt' in filename:
                                         if not os.path.isdir('static'):
                                             os.mkdir('static')
@@ -282,7 +317,7 @@ def loadInbox(search):
                                             "<p><a href=\"static/" + filename + "\" download>\n"
                                             + filename + "</a></p>\n"
                                             )
-                                        continue
+                                        
 
                                     elif '.png' or '.jpg' or '.gif' in filename:
                                         if not os.path.isdir('static'):
@@ -290,15 +325,14 @@ def loadInbox(search):
                                         filepath = os.path.join('static', filename)
                                         open(filepath, "wb").write(part.get_payload(decode=True))
                                         email_att += (
-                                            "<p><a href=\"static/" + filename + "\" download>\n"
-                                            "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"50%\" height=\"50%\" alt=\"image\"><br>\n"
-                                            + filename + "</a></p>\n"
+                                            "<a href=\"static/" + filename + "\" download>\n"
+                                            "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"75%\" height=\"125%\" style=\"bottom: 137%; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);\"alt=\"image\">\n"
+                                            "</a>\n"
                                             )
-                                        continue
+                                        
 
                         else:
                             email_body = msg.get_payload(decode=True).decode()
-                        print("found an email!")
                         match = True
                         continue
 
@@ -310,6 +344,7 @@ def loadInbox(search):
                     
                         
                 else:
+                    search = ''
                     match = True
                     if msg.is_multipart():
 
@@ -322,16 +357,17 @@ def loadInbox(search):
 
                             if ctype == 'text/html' or 'application' in cdispo:
                                 email_body = part.get_payload(decode=True).decode()
-                                continue
+                                
                             elif "attachment" in cdispo:
                                 filename = part.get_filename()
+                                #print(filename)
                                 if '.pdf' in filename:
                                     if not os.path.isdir('static'):
                                         os.mkdir('static')
                                     filepath = os.path.join('static', filename)
                                     open(filepath, "wb").write(part.get_payload(decode=True))
                                     email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
-                                    continue
+                                    
                                 elif '.txt' in filename:
                                     if not os.path.isdir('static'):
                                         os.mkdir('static')
@@ -341,7 +377,7 @@ def loadInbox(search):
                                         "<p><a href=\"static/" + filename + "\" download>\n"
                                         + filename + "</a></p>\n"
                                         )
-                                    continue
+                                    
 
                                 elif '.png' or '.jpg' or '.gif' in filename:
                                     if not os.path.isdir('static'):
@@ -349,22 +385,28 @@ def loadInbox(search):
                                     filepath = os.path.join('static', filename)
                                     open(filepath, "wb").write(part.get_payload(decode=True))
                                     email_att += (
-                                        "<p><a href=\"static/" + filename + "\" download>\n"
-                                        "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"50%\" height=\"50%\" alt=\"image\"><br>\n"
-                                        + filename + "</a></p>\n"
+                                        "<a href=\"static/" + filename + "\" download>\n"
+                                        "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"75%\" height=\"125%\" style=\"bottom: 137%; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);\"alt=\"image\">\n"
+                                        "</a>\n"
                                         )
-                                    continue
+                                    
 
                     else:
                         email_body = msg.get_payload(decode=True).decode()
-                        continue
+                        
                     
         index-=1
+        #print(index)
+        #if filename :
+            #print(filename)
         if match == False:
             continue
+        if search == None:
+            search = ''
+
 
         text += (  # appending sender, subject, and time to inbox.html file
-            "<tr onclick=\"openEmail")
+            "<tr class=\"w3-animate-zoom\" onclick=\"openEmail")
         text += str(index+1) + ("();\">\n"
             "<td>"
             )
@@ -391,26 +433,33 @@ def loadInbox(search):
             "</td>\n"
             "</tr>\n"
             )
+        
+
         text += (          #add div here
             "<div style=\" display: none; position: fixed; padding-top: 200px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"email")
         text += str(index+1) + "\">\n"
         text += (
-            "<div class=\"text-left\" style=\" position: relative; margin: auto; width: 600px; height: 700px; overflow: auto; background-color: white; padding: 10px; padding-bottom: 0px; padding-right: 0px; border-style: outset; border-color: #007bff;\">"
+            "<div class=\"text-left w3-container w3-animate-zoom\" style=\" word-wrap: break-word; position: relative; margin: auto; width: 600px; height: 700px; overflow: auto; background-color: white; padding: 10px; padding-bottom: 0px; padding-right: 0px; border: 10px outset #007bff;\">"
             "<div style=\"margin: auto; border: 3px solid #007bff;\">"
             "<h5>From: "
             )
         text += email_from + "<br>\n"
         text += "Subject: " + email_subject + "</h5>\n"
         text += "<h6>Date: " + email_date + "</h6></div><br>\n"
-        text += "<div style=\"margin: auto; border: 3px solid #007bff; height: 600px; padding: 10px;\">"
-        text += email_body + "\n"
-        if email_att: 
+        text += "<div style=\"word-wrap: break-word; margin: auto; border: 3px solid #007bff; min-height: 700px; padding: 10px;\">"
+        text += email_body
+        if '.pdf' in filename or '.txt' in filename:
+            text += email_att  + "\n</div>\n"
+        else:
+            text += "\n</div>\n"
+        
+        text += ("<div style=\"bottom: 5%; left: 0; position: sticky; height: 85px; width: 175px;\">\n")
+        if '.png' in filename or '.jpg' in filename or '.gif' in filename: 
             text += email_att
-        text += (
-            "</div>\n"
-            "<div style=\"bottom: 0; left: 100%; position: sticky; height: 50px; width: 175px;\">\n"
-            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "` , `" + email_att + "`);\'>Forward</button>\n"
-            "<button class=\"btn btn-primary\" style=\"margin: 2.5px;\" type=\"button\" onclick=\"closeEmail"
+
+        text +=(
+            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "` , `" + email_att + "`);\' style=\"position: absolute; left: 210%; bottom: -30%; display: inline-block;\">Forward</button>\n"
+            "<button class=\"btn btn-primary\" style=\"position: absolute; left: 265%; bottom: -30%; display: inline-block;\" type=\"button\" onclick=\"closeEmail"
             )
         text += str(index+1) + ("()\">Cancel</button>\n")
         text +=(
@@ -437,10 +486,29 @@ def loadInbox(search):
     text += (
         
         "</table>\n"
-        "<br><br>"
-        "<button class=\"btn btn-lg btn-primary btn-block\" name=\"sendMail\" onclick=\"openForm('','')\" value=\"sendMail\">Send mail</button>\n"
-        "<div style=\" display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"myForm\">\n"
-        "<form action=\"sendmail\" style=\" position: relative; margin: auto; width: 800px; background-color: white; padding: 10px; border-style: outset; border-color: #007bff;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
+        "<br>")
+
+    text += (
+        "<button class=\"btn btn-lg btn-primary\" id=\"rev\" onclick=\"Rev()\"><- Page</button>\n"
+        )
+
+    
+    
+    text += (
+        "<button class=\"btn btn-lg btn-primary\" id=\"tab\" onclick=\"Tab()\">Page -></button>\n"
+
+
+        "<form style=\"display: inline-block;\" onsubmit=\"Page()\" action=\"pageforward\" method=\"POST\" >\n"
+        "<button class=\"btn btn-lg btn-primary\" id=\"page\" name=\"page\" value=\"" + str(index) + "\">Page -></button>\n"
+        "</form><br>\n"
+
+        )
+
+
+    text += (
+        "<br><button class=\"btn btn-lg btn-primary btn-block\" onclick=\"openForm('','')\" id=\"sendmail\" value=\"sendMail\">Send mail</button>\n"
+        "<div  style=\" display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"myForm\">\n"
+        "<form class=\"w3-container w3-center w3-animate-zoom\" action=\"sendmail\" style=\" position: relative; margin: auto; width: 800px; background-color: white; padding: 10px; border: 10px outset #007bff;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
         "<h1>Email Client</h1>\n"
         "<h1 class=\"h3 mb-3 font-weight-normal\">Send Email</h1>\n"
         "<label for=\"sendto\" class=\"sr-only\">To:</label>\n"
@@ -458,8 +526,68 @@ def loadInbox(search):
         "<button class=\"btn btn-lg btn-primary btn-block\" type=\"button\" onclick=\"closeForm()\">Cancel</button>\n"
         "</form>\n"
         "</div>\n"
-        "<script>\n"
-        
+        "</div>\n"
+
+        "<script>\n")
+
+    text += """
+
+if(sessionStorage.tab == 0){
+document.getElementById("rev").style.display = "none";
+}
+if(sessionStorage.tab == sessionStorage.page){
+document.getElementById("tab").style.display = "none";
+document.getElementById("page").style.display = "inline-block";
+}
+if (sessionStorage.tab > 0){
+document.getElementById("rev").style.display = "inline-block";
+}
+if(sessionStorage.tab < sessionStorage.page){
+document.getElementById("page").style.display = "none";
+document.getElementById("tab").style.display = "inline-block";
+}
+
+function Page() {
+
+  sessionStorage.page = Number(sessionStorage.page)+1;
+  sessionStorage.tab = Number(sessionStorage.tab)+1;
+
+}
+function Rev(){
+    
+  sessionStorage.tab = Number(sessionStorage.tab)-1;
+  window.history.back();
+
+
+
+}
+function Tab(){
+  sessionStorage.tab = Number(sessionStorage.tab)+1;
+  window.history.forward();
+  
+
+
+}
+function Reset(){
+    sessionStorage['page'] = 0;
+
+    sessionStorage['tab'] = 0;
+}\n
+
+
+
+
+
+
+
+
+
+
+
+"""
+
+
+    text += (    
         "function openForm(s, b, a){\n"
         "CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
         "CKEDITOR.config.readOnly = false;\n"
@@ -481,15 +609,17 @@ def loadInbox(search):
         
         "document.getElementById(\"myForm\").style.display = \"none\";\n"
         "}\n"
+
+        )
+    
+
+
+    text += (
+
         "</script>\n"
         "</body>\n"
-        "</div>\n"
         "</html>\n")
-    then = time.time()
-    print(then - now)
-    #timefile = open("timefile.txt", 'a+')
-    #timefile.write((str(then-now)) + " seconds" + "\n")
-    htmlFile = open("templates/inbox.html", 'w')
+    htmlFile = open("templates/inbox.html", 'w+')
     htmlFile.write(text)
 
 def sendEmail(newMessage):
@@ -503,10 +633,25 @@ def sendEmail(newMessage):
         server.send_message(newMessage)
     return redirect('/inbox')  # goes back to inbox after sending mail
 
+@app.route('/pageforward', methods=['GET', 'POST'])
+def pageforward():
+    index = request.form['page']
+    search = None
+    index = int(index)
+
+    loadInbox(search, index)
+    return render_template('inbox.html')
+
+
 
 # starting web app
 if __name__ == '__main__':
     if len(sys.argv) == 2 and str(sys.argv[1]) == "travisTest":
         travisTest()
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    #os.system("start \"\" http://" + ip_address + ":5000")
 
+    #webbrowser.open('http://localhost:5000')
     app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
+    
