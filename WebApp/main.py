@@ -34,7 +34,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
-    time = datetime.now()
+    time = datetime.datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
 
@@ -55,6 +55,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
     if time in body: # if email time is same as the time the test email was sent, test passes
+        print("Test confirmed. Closing app.")
         exit()
 
 # Web Pages - first pages are commented, the rest follow similar functionality
@@ -356,7 +357,7 @@ def loadInbox(search, index):
 
 
                             if ctype == 'text/html' or 'application' in cdispo:
-                                email_body = part.get_payload(decode=True)
+                                email_body = part.get_payload(decode=True).decode()
                                 
                             elif "attachment" in cdispo:
                                 filename = part.get_filename()
