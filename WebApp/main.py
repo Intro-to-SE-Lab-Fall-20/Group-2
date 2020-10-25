@@ -356,7 +356,7 @@ def loadInbox(search, index):
 
 
                             if ctype == 'text/html' or 'application' in cdispo:
-                                email_body = part.get_payload(decode=True).decode()
+                                email_body = part.get_payload(decode=True)
                                 
                             elif "attachment" in cdispo:
                                 filename = part.get_filename()
@@ -403,6 +403,12 @@ def loadInbox(search, index):
             continue
         if search == None:
             search = ''
+        if email_body == None:
+            email_body = ""
+        if email_subject == None:
+            email_subject = ""
+        email_body = str(email_body)
+        email_subject = str(email_subject)
 
 
         text += (  # appending sender, subject, and time to inbox.html file
