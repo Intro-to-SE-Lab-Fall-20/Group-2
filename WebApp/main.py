@@ -34,7 +34,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
-    time = datetime.datetime.now()
+    time = datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
 
@@ -55,7 +55,6 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
     if time in body: # if email time is same as the time the test email was sent, test passes
-        print("Test confirmed. Closing app.")
         exit()
 
 # Web Pages - first pages are commented, the rest follow similar functionality
@@ -194,7 +193,7 @@ def loadInbox(search, index):
         maxLoad = 20
     text = (
 
-        "<!doctype html>\n"
+        "<!DOCTYPE html>\n"
         "<html lang=\"en\">\n"
         "<head>\n"
 
@@ -268,7 +267,7 @@ def loadInbox(search, index):
         toLoad = numEmails
     print(search)
     
-
+    index -= 0
     for messageNum in range(toLoad):  # iterating through all messages
         currentEmail = str(index).encode()
         typ, data = imap.fetch(currentEmail, '(RFC822)')
@@ -297,7 +296,7 @@ def loadInbox(search, index):
 
 
                                 if ctype == 'text/html' or 'application' in cdispo:
-                                    email_body = part.get_payload(decode=True).decode()
+                                    email_body = part.get_payload(decode=True).decode('cp1252')
                                     
                                 elif "attachment" in cdispo:
                                     filename = part.get_filename()
@@ -357,7 +356,7 @@ def loadInbox(search, index):
 
 
                             if ctype == 'text/html' or 'application' in cdispo:
-                                email_body = part.get_payload(decode=True).decode()
+                                email_body = part.get_payload(decode=True).decode('cp1252')
                                 
                             elif "attachment" in cdispo:
                                 filename = part.get_filename()
@@ -395,7 +394,8 @@ def loadInbox(search, index):
                     else:
                         email_body = msg.get_payload(decode=True).decode()
                         
-                    
+         
+          
         index-=1
         #print(index)
         #if filename :
@@ -404,12 +404,6 @@ def loadInbox(search, index):
             continue
         if search == None:
             search = ''
-        if email_body == None:
-            email_body = ""
-        if email_subject == None:
-            email_subject = ""
-        email_body = str(email_body)
-        email_subject = str(email_subject)
 
 
         text += (  # appending sender, subject, and time to inbox.html file
@@ -434,15 +428,10 @@ def loadInbox(search, index):
             "</td>\n"
             "<td>")
 
-        text += email_date
+        text += "<p>" + email_date + "</p>\n"
 
-        text += (
-            "</td>\n"
-            "</tr>\n"
-            )
-        
 
-        text += (          #add div here
+        text += (          
             "<div style=\" display: none; position: fixed; padding-top: 200px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"email")
         text += str(index+1) + "\">\n"
         text += (
@@ -454,28 +443,28 @@ def loadInbox(search, index):
         text += "Subject: " + email_subject + "</h5>\n"
         text += "<h6>Date: " + email_date + "</h6></div><br>\n"
         text += "<div style=\"word-wrap: break-word; margin: auto; border: 3px solid #007bff; min-height: 700px; padding: 10px;\">"
-        text += email_body
+        text += email_body.replace('\'', '').replace('<', '\n<')
+
         if '.pdf' in filename or '.txt' in filename:
-            text += email_att  + "\n</div>\n"
-        else:
-            text += "\n</div>\n"
+            text += email_att
+        text += "\n</div>\n"
+        #else:
+            #text += "</div>\n"
         
         text += ("<div style=\"bottom: 5%; left: 0; position: sticky; height: 85px; width: 175px;\">\n")
         if '.png' in filename or '.jpg' in filename or '.gif' in filename: 
             text += email_att
 
         text +=(
-            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`" + email_subject + "` , `" + email_body + "` , `" + email_att + "`);\' style=\"position: absolute; left: 210%; bottom: -30%; display: inline-block;\">Forward</button>\n"
+            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`\n" + email_subject + "` , `\n" + email_body.replace('\'', '').replace('\"', '').replace('<', '\n<') + "` , `\n" + email_att + "`)\' style=\"position: absolute; left: 210%; bottom: -30%; display: inline-block;\">Forward</button>\n"
             "<button class=\"btn btn-primary\" style=\"position: absolute; left: 265%; bottom: -30%; display: inline-block;\" type=\"button\" onclick=\"closeEmail"
             )
-        text += str(index+1) + ("()\">Cancel</button>\n")
-        text +=(
-            "</div>\n"
-            "</div>\n"
-            "</div>\n")
-        if 'Forward' in email_body:
-            text += "</div>\n"
+        text += str(index+1) + ("();event.stopPropagation()\">Cancel</button></div>\n")
+        #if 'Forward' in email_body:
+            #text += "</div>\n"
         text += (
+            "</div>\n"
+            "</div>\n"
             "<script>\n"
             "function openEmail")
         text += str(index+1) + ("(){\n"
@@ -487,12 +476,15 @@ def loadInbox(search, index):
             "document.getElementById(\"email")
         text += str(index+1) + ("\").style.display = \"none\";\n"
             "}\n"
-            "</script>\n")
-
+            "</script>\n"
+            )
+        text += (
+            "</td>\n"
+            "</tr>\n"
+            )
 
     text += (
-        
-        "</table>\n"
+        "</table>\n" 
         "<br>")
 
     text += (
@@ -534,7 +526,6 @@ def loadInbox(search, index):
         "</form>\n"
         "</div>\n"
         "</div>\n"
-
         "<script>\n")
 
     text += """
@@ -622,7 +613,6 @@ function Reset(){
 
 
     text += (
-
         "</script>\n"
         "</body>\n"
         "</html>\n")
