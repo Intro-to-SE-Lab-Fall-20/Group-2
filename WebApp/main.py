@@ -120,6 +120,7 @@ def sendMail():
         newMessage['To'] = request.form['toemail']
         newMessage['Subject'] = request.form['subject']
         newMessage['From'] = userEmail
+        newMessage['Reply-to'] = userEmail
         body = MIMEText(request.form['msgbody'], 'html', 'utf-8')
         body.add_header('Content-Disposition', 'text/html')
 
@@ -281,6 +282,9 @@ def loadInbox(search, index):
                 email_from = msg['from']
                 if len(email_from) > 35:
                     email_from = email_from[:35]
+                if msg['In-Reply-To']:
+                    print("true")
+                    print(msg['In-Reply-To'])
                 email_date = email.utils.parsedate_to_datetime(msg['date'])
                 email_date = email_date.strftime('%a, %d %b %y %I:%M%p')
                 filename = ''
@@ -352,7 +356,7 @@ def loadInbox(search, index):
                             email_att = ""
                             ctype = part.get_content_type()
                             cdispo = str(part.get('Content-Disposition'))
-                            
+                            print(ctype)
 
 
                             if ctype == 'text/html' or 'application' in cdispo:
@@ -397,7 +401,6 @@ def loadInbox(search, index):
          
           
         index-=1
-        #print(index)
         #if filename :
             #print(filename)
         if match == False:
@@ -454,8 +457,12 @@ def loadInbox(search, index):
         text += ("<div style=\"bottom: 5%; left: 0; position: sticky; height: 85px; width: 175px;\">\n")
         if '.png' in filename or '.jpg' in filename or '.gif' in filename: 
             text += email_att
+        start = email_from.find('<') + len('<')
+        end = email_from.find('>')
+        sender = email_from[start:end]
 
         text +=(
+            "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`Re: " + email_subject + "` , `\n" + email_body.replace('\'', '').replace('\"', '').replace('<', '\n<') + "` , ``, `" + sender +  "`)\' style=\"position: absolute; left: 165%; bottom: -30%; display: inline-block;\">Reply</button>\n"
             "<button class=\"btn btn-primary\"  type=\"button\" onclick=\'openForm(`\n" + email_subject + "` , `\n" + email_body.replace('\'', '').replace('\"', '').replace('<', '\n<') + "` , `\n" + email_att + "`)\' style=\"position: absolute; left: 210%; bottom: -30%; display: inline-block;\">Forward</button>\n"
             "<button class=\"btn btn-primary\" style=\"position: absolute; left: 265%; bottom: -30%; display: inline-block;\" type=\"button\" onclick=\"closeEmail"
             )
@@ -505,7 +512,7 @@ def loadInbox(search, index):
 
 
     text += (
-        "<br><button class=\"btn btn-lg btn-primary btn-block\" onclick=\"openForm('','')\" id=\"sendmail\" value=\"sendMail\">Send mail</button>\n"
+        "<br><button class=\"btn btn-lg btn-primary btn-block\" onclick=\"openForm('','', '', '')\" id=\"sendmail\" value=\"sendMail\">Send mail</button>\n"
         "<div  style=\" display: none; position: fixed; padding-top: 100px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"myForm\">\n"
         "<form class=\"w3-container w3-center w3-animate-zoom\" action=\"sendmail\" style=\" position: relative; margin: auto; width: 800px; background-color: white; padding: 10px; border: 10px outset #007bff;\" method=\"POST\" enctype=\"multipart/form-data\">\n"
         "<h1>Email Client</h1>\n"
@@ -572,24 +579,15 @@ function Reset(){
     sessionStorage['tab'] = 0;
 }\n
 
-
-
-
-
-
-
-
-
-
-
 """
 
 
     text += (    
-        "function openForm(s, b, a){\n"
+        "function openForm(s, b, a, r){\n"
         "CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
         "CKEDITOR.config.readOnly = false;\n"
-        "if (s || b || a){\n"
+        "CKEDITOR.config.allowedContent = 'img a h1 h2 h3 p blockquote strong em div{margin-left, padding, background-color};' + 'a[!href];' + 'img(left,right)[!src,alt,width,height];' + 'div[!contenteditable, !style];' + 'p[!contenteditable];';\n"
+        "if ((s || b || a) && !r){\n"
         "var forward = '--------- Forwarded message ---------- <br>';\n"
         "var date = 'Date: " + email_date + "<br>';\n"
         "var from = 'From: " + email_from + "<br>';\n"
@@ -597,9 +595,15 @@ function Reset(){
         "var to = 'To: " + userEmail + "<br>';\n"
         "var att = a;\n"
         "var forward = forward.concat(from, date, subject, to, b, a);\n"
-        "}\n"
         "CKEDITOR.instances.msgbody.setData(forward);\n"
         "document.getElementById(\"subject\").value = s; \n"
+        "}\n"
+        "if(r){\n"
+        "var reply = `<p contenteditable='false'> On " + email_date + " " + email_from + " wrote: </p><div contenteditable='false' style=\"margin-left: 20px; padding: 10px; background-color: rgba(0,0,220,.1);\">` + b + `</div><br>`;\n"
+        "document.getElementById(\"sendto\").value = \'" + userEmail + "\'; \n"
+        "document.getElementById(\"subject\").value = s; \n"
+        "CKEDITOR.instances.msgbody.setData(reply);\n"
+        "}\n"
         "document.getElementById(\"myForm\").style.display = \"block\";\n"
         "b = '';\n"
         "}\n"
