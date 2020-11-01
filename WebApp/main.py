@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect  # local hosting
+from flask import Flask, request, render_template, redirect, flash # local hosting
 import smtplib, ssl  # server library
 import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
@@ -17,13 +17,18 @@ import time
 import webbrowser
 import socket
 import email.utils
-import datetime
+from cryptography.fernet import Fernet
 
 
 
 app = Flask(__name__)
 emailport = 465  # Gmail port
 context = ssl.create_default_context()
+
+global key
+key = Fernet.generate_key()
+print(key.decode())
+error = ''
 
 
 def travisTest():  # sends email to itself to verify it works (for travis CI)
@@ -60,17 +65,43 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
 # Web Pages - first pages are commented, the rest follow similar functionality
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    print(key.decode())
+    global attempts
+    global error
+    global then
+    now = time.time()
     if request.method == 'POST':  # when form is submitted, it collects the data and authenticates
         userEmail = request.form['email']  # requests the object with name 'email'
         userPassword = request.form['password']  # requests the object with name 'password'
+        #userPassword = encrypt(userPassword.encode(), key)
         userInfoFile = open("userCredentials.txt", 'w')  # saving credentials for later use
         userInfoFile.write(userEmail + "\n")
+        #userInfoFile = open("userCredentials.txt", 'ab')
         userInfoFile.write(userPassword + "\n")
         userInfoFile.close()
+        
 
-        authenticate()  # check creds
-        return redirect('/inbox')  # after login, go to inbox
+        if authenticate() and attempts > 0:  # check creds
+            return redirect('/inbox')  # after login, go to inbox
+        else:
+            attempts -= 1
+            error = "You have " + str(attempts) + " attempts left."
+            if attempts == 0:
+                error = "All attempts used."
+                then = time.time()
+                error += " Please try again in " + str(int((20 - (now - then)))) + " seconds."
+                if (int(now - then) > 20):
+                    attempts = 5
+                    error = ''
+            if attempts < 0:
+                error = "All attempts used."
+                error += " Please try again in " + str(int((20 - (now - then)))) + " seconds."
+                if (int(now - then) > 20):
+                    attempts = 5
+                    error = ''
 
+           
+        return render_template('login.html', error=error)
     else:
         return render_template('login.html')  # renders login.html until form is submitted
 
@@ -103,7 +134,6 @@ def inbox():
         search = None
 
     else:
-       
         loadInbox(None, index)
     return render_template('inbox.html')  # renders inbox.html until form is submitted
 
@@ -184,7 +214,11 @@ def authenticate():
     userInfoFile.close()
 
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
-        server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
+        try:
+            server.login(userEmail, userPassword)  # connecting to server and logging in (checks creds)
+            return True
+        except:
+            return False
 
 def loadInbox(search, index):
     if search == None:
@@ -282,9 +316,6 @@ def loadInbox(search, index):
                 email_from = msg['from']
                 if len(email_from) > 35:
                     email_from = email_from[:35]
-                if msg['In-Reply-To']:
-                    print("true")
-                    print(msg['In-Reply-To'])
                 email_date = email.utils.parsedate_to_datetime(msg['date'])
                 email_date = email_date.strftime('%a, %d %b %y %I:%M%p')
                 filename = ''
@@ -356,7 +387,6 @@ def loadInbox(search, index):
                             email_att = ""
                             ctype = part.get_content_type()
                             cdispo = str(part.get('Content-Disposition'))
-                            print(ctype)
 
 
                             if ctype == 'text/html' or 'application' in cdispo:
@@ -643,6 +673,12 @@ def pageforward():
     loadInbox(search, index)
     return render_template('inbox.html')
 
+def encrypt(token: bytes, key: bytes) -> bytes:
+    return Fernet(key).encrypt(token)
+
+def decrypt(token: bytes, key: bytes) -> bytes:
+    return Fernet(key).decrypt(token)
+
 
 
 # starting web app
@@ -652,7 +688,9 @@ if __name__ == '__main__':
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     #os.system("start \"\" http://" + ip_address + ":5000")
+    attempts = 5
 
-    #webbrowser.open('http://localhost:5000')
+        #webbrowser.open('http://localhost:5000')
+    app.secret_key = b'THISisGROUP2//\\\\'
     app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
     
