@@ -4,7 +4,6 @@ import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
 from datetime import datetime
 import imaplib
-from email.header import decode_header
 import email
 import sys
 import os
@@ -14,11 +13,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 import time
-import webbrowser
 import socket
 import email.utils
 from cryptography.fernet import Fernet
-
+import webbrowser
 
 
 app = Flask(__name__)
@@ -27,11 +25,13 @@ context = ssl.create_default_context()
 
 global key
 key = Fernet.generate_key()
-print(key.decode())
 error = ''
 
 
 def travisTest():  # sends email to itself to verify it works (for travis CI)
+    def encrypt(token: bytes, key: bytes) -> bytes:
+        return Fernet(key).encrypt(token)
+
     print("Sending test email...")  # setting up email
     userEmail = "group2emailclient@gmail.com"
     userPassword = "Group2Test"
@@ -39,7 +39,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
-    time = datetime.datetime.now()
+    time = datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
 
@@ -60,12 +60,12 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
     if time in body: # if email time is same as the time the test email was sent, test passes
+        print("Test confirmed. Closing app.")
         exit()
 
 # Web Pages - first pages are commented, the rest follow similar functionality
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    print(key.decode())
     global attempts
     global error
     global then
@@ -79,10 +79,9 @@ def login():
         #userInfoFile = open("userCredentials.txt", 'ab')
         userInfoFile.write(userPassword + "\n")
         userInfoFile.close()
-        
 
         if authenticate() and attempts > 0:  # check creds
-            return redirect('/inbox')  # after login, go to inbox
+            return redirect('/director')  # after login, go to inbox
         else:
             attempts -= 1
             error = "You have " + str(attempts) + " attempts left."
@@ -100,10 +99,31 @@ def login():
                     attempts = 5
                     error = ''
 
-           
+
         return render_template('login.html', error=error)
     else:
         return render_template('login.html')  # renders login.html until form is submitted
+
+@app.route('/director', methods=['POST', 'GET'])
+def direct():
+    if request.method == "POST":
+        if "Notes" in request.form:
+            return redirect('/notes')
+        if "Email" in request.form:
+            return redirect('/inbox')
+
+    else:
+        return render_template('director.html')
+
+@app.route('/notes', methods=['POST', 'GET'])
+def notes():
+    if request.method == "POST":
+        if "newNote" in request.form:
+            print("")#Create a new note here
+
+
+    else:
+        return render_template('notes.html')
 
 @app.route('/inbox', methods=['POST', 'GET'])
 def inbox():
@@ -143,7 +163,6 @@ def sendMail():
     userEmail = userInfoFile.readline()
     userPassword = userInfoFile.readline()
     userInfoFile.close()
-    print("Inside sendmail route")
 
     if request.method == 'POST':
         newMessage = MIMEMultipart()
@@ -155,7 +174,7 @@ def sendMail():
         body.add_header('Content-Disposition', 'text/html')
 
         newMessage.attach(body)
-        
+
         image = request.files["attachment"]
         if image.filename != "":
             rootPath = os.path.dirname(os.path.abspath("main.py"))
@@ -185,7 +204,7 @@ def sendMail():
         return sendEmail(newMessage)
     else:
         return render_template("/sendmail.html")
-                
+
 
 
 @app.route('/logout')
@@ -301,7 +320,7 @@ def loadInbox(search, index):
     else:
         toLoad = numEmails
     print(search)
-    
+
     index -= 0
     for messageNum in range(toLoad):  # iterating through all messages
         currentEmail = str(index).encode()
@@ -327,22 +346,21 @@ def loadInbox(search, index):
                                 email_att = ""
                                 ctype = part.get_content_type()
                                 cdispo = str(part.get('Content-Disposition'))
-                                
+
 
 
                                 if ctype == 'text/html' or 'application' in cdispo:
                                     email_body = part.get_payload(decode=True).decode('cp1252')
-                                    
+
                                 elif "attachment" in cdispo:
                                     filename = part.get_filename()
-                                    #print(filename)
                                     if '.pdf' in filename:
                                         if not os.path.isdir('static'):
                                             os.mkdir('static')
                                         filepath = os.path.join('static', filename)
                                         open(filepath, "wb").write(part.get_payload(decode=True))
                                         email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
-                                        
+
                                     elif '.txt' in filename:
                                         if not os.path.isdir('static'):
                                             os.mkdir('static')
@@ -352,7 +370,7 @@ def loadInbox(search, index):
                                             "<p><a href=\"static/" + filename + "\" download>\n"
                                             + filename + "</a></p>\n"
                                             )
-                                        
+
 
                                     elif '.png' or '.jpg' or '.gif' in filename:
                                         if not os.path.isdir('static'):
@@ -364,20 +382,16 @@ def loadInbox(search, index):
                                             "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"75%\" height=\"125%\" style=\"bottom: 137%; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);\"alt=\"image\">\n"
                                             "</a>\n"
                                             )
-                                        
 
                         else:
                             email_body = msg.get_payload(decode=True).decode()
                         match = True
                         continue
 
-                        
-                        
                     else:
                         match = False
                         continue
-                    
-                        
+
                 else:
                     search = ''
                     match = True
@@ -391,7 +405,7 @@ def loadInbox(search, index):
 
                             if ctype == 'text/html' or 'application' in cdispo:
                                 email_body = part.get_payload(decode=True).decode('cp1252')
-                                
+
                             elif "attachment" in cdispo:
                                 filename = part.get_filename()
                                 #print(filename)
@@ -401,7 +415,7 @@ def loadInbox(search, index):
                                     filepath = os.path.join('static', filename)
                                     open(filepath, "wb").write(part.get_payload(decode=True))
                                     email_att += "<a href=\"static/" + filename + "\" target=\"_blank\">" + filename +"</a>\n"
-                                    
+
                                 elif '.txt' in filename:
                                     if not os.path.isdir('static'):
                                         os.mkdir('static')
@@ -411,7 +425,6 @@ def loadInbox(search, index):
                                         "<p><a href=\"static/" + filename + "\" download>\n"
                                         + filename + "</a></p>\n"
                                         )
-                                    
 
                                 elif '.png' or '.jpg' or '.gif' in filename:
                                     if not os.path.isdir('static'):
@@ -423,13 +436,10 @@ def loadInbox(search, index):
                                         "<img onmouseover=\"style.opacity = .6;\" onmouseout=\"style.opacity = 1;\" src=\"static/" + filename + "\" width=\"75%\" height=\"125%\" style=\"bottom: 137%; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);\"alt=\"image\">\n"
                                         "</a>\n"
                                         )
-                                    
 
                     else:
                         email_body = msg.get_payload(decode=True).decode()
-                        
-         
-          
+
         index-=1
         #if filename :
             #print(filename)
@@ -438,13 +448,11 @@ def loadInbox(search, index):
         if search == None:
             search = ''
 
-
         text += (  # appending sender, subject, and time to inbox.html file
             "<tr class=\"w3-animate-zoom\" onclick=\"openEmail")
         text += str(index+1) + ("();\">\n"
             "<td>"
             )
-            
 
         text += email_from
 
@@ -463,8 +471,7 @@ def loadInbox(search, index):
 
         text += "<p>" + email_date + "</p>\n"
 
-
-        text += (          
+        text += (
             "<div style=\" display: none; position: fixed; padding-top: 200px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; margin: auto; background-color: rgba(0,0,255,.2);\" id=\"email")
         text += str(index+1) + "\">\n"
         text += (
@@ -483,9 +490,9 @@ def loadInbox(search, index):
         text += "\n</div>\n"
         #else:
             #text += "</div>\n"
-        
+
         text += ("<div style=\"bottom: 5%; left: 0; position: sticky; height: 85px; width: 175px;\">\n")
-        if '.png' in filename or '.jpg' in filename or '.gif' in filename: 
+        if '.png' in filename or '.jpg' in filename or '.gif' in filename:
             text += email_att
         start = email_from.find('<') + len('<')
         end = email_from.find('>')
@@ -528,18 +535,13 @@ def loadInbox(search, index):
         "<button class=\"btn btn-lg btn-primary\" id=\"rev\" onclick=\"Rev()\"><- Page</button>\n"
         )
 
-    
-    
     text += (
         "<button class=\"btn btn-lg btn-primary\" id=\"tab\" onclick=\"Tab()\">Page -></button>\n"
-
 
         "<form style=\"display: inline-block;\" onsubmit=\"Page()\" action=\"pageforward\" method=\"POST\" >\n"
         "<button class=\"btn btn-lg btn-primary\" id=\"page\" name=\"page\" value=\"" + str(index) + "\">Page -></button>\n"
         "</form><br>\n"
-
         )
-
 
     text += (
         "<br><button class=\"btn btn-lg btn-primary btn-block\" onclick=\"openForm('','', '', '')\" id=\"sendmail\" value=\"sendMail\">Send mail</button>\n"
@@ -611,8 +613,7 @@ function Reset(){
 
 """
 
-
-    text += (    
+    text += (
         "function openForm(s, b, a, r){\n"
         "CKEDITOR.replace( 'msgbody', {height: 500, contentsCss: \"body {font-size: 20px;}\"});\n"
         "CKEDITOR.config.readOnly = false;\n"
@@ -643,7 +644,7 @@ function Reset(){
         "}\n"
 
         )
-    
+
 
 
     text += (
@@ -676,15 +677,12 @@ def pageforward():
 def encrypt(token: bytes, key: bytes) -> bytes:
     return Fernet(key).encrypt(token)
 
-def decrypt(token: bytes, key: bytes) -> bytes:
-    return Fernet(key).decrypt(token)
-
-
 
 # starting web app
 if __name__ == '__main__':
     if len(sys.argv) == 2 and str(sys.argv[1]) == "travisTest":
         travisTest()
+
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
     #os.system("start \"\" http://" + ip_address + ":5000")
@@ -693,4 +691,3 @@ if __name__ == '__main__':
         #webbrowser.open('http://localhost:5000')
     app.secret_key = b'THISisGROUP2//\\\\'
     app.run(host='0.0.0.0', debug=True)  # Launches server on main computer's ipv4 address:5000
-    
