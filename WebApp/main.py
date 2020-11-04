@@ -39,7 +39,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
-    time = datetime.now()
+    time = datetime.datetime.now()
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
 
