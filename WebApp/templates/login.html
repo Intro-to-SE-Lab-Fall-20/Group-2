@@ -10,21 +10,26 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
 
     <link rel="stylesheet" type="text/css" href= "{{ url_for('static',filename='styles/styles.css') }}">
+    <script>
+      sessionStorage['page'] = 0;
+      sessionStorage['tab'] = 0;
+    </script>
 
 
   </head>
   <body class="text-center">
 
     <form class="form-signin" method="post">
-      <h1>Email Client</h1>
-      <h1 class="h3 mb-3 font-weight-normal">Please Sign In</h1>
+      <h1 >Email Client</h1>
+      <h1 class="h3 mb-3 font-weight-normal">Please Sign In</h1><span>{{error}}</span>
       <label for="inputEmail" class="sr-only">Email Address</label>
       <input type="email" name= "email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
       <label for="inputPassword" class="sr-only">Password</label>
       <input type="password" name="password" id="inputPassword" class="form-control" placeholder="Password" required>
-      <button class="btn btn-lg btn-primary btn-block" type="submit" name="signIn">Sign in</button>
+      <button class="btn btn-lg btn-primary btn-block" type="submit" name="signIn">Sign in</button> 
       <a href="https://accounts.google.com/signup/v2/webcreateaccount?hl=en&flowName=GlifWebSignIn&flowEntry=SignUp" class="button">New Account</a>
-
+      
   </form>
 </body>
+
 </html>
