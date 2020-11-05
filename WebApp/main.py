@@ -118,11 +118,72 @@ def direct():
 @app.route('/notes', methods=['POST', 'GET'])
 def notes():
     if request.method == "POST":
-        if "newNote" in request.form:
-            print("")#Create a new note here
+        text = """<!DOCTYPE html>\n
+                    <html lang="en">\n
+                    <head>\n
+                    <meta charset="utf-8">\n
+                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
 
+                    <title>Email Client</title>\n
+
+                    <!-- Bootstrap core CSS -->\n
+                    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">\n
+
+                  </head>\n
+                  <body class="text-center">\n
+                  <form method="post">\n
+
+                  <h1>Notes</h1>\n
+
+                  <input type="text" name="Title" id="Title" class="form-control" placeholder="Note Title">\n
+                  <input type="text" name="Message" id="Message" class="form-control" placeholder="Note Message">\n
+
+                  <button class="btn btn-lg btn-primary btn-block" type="submit" name="newNote">New Note</button>\n"""
+
+        if "newNote" in request.form:
+            title = request.form.get('Title')
+            message = request.form.get('Message')
+            print(title)
+            print(message)
+            text += title
+            text += message
+
+        text += """</form>\n
+                    </body>\n
+                    </html>\n"""
+        html = open("templates/notes.html", 'w')
+        html.write(text)
+        html.close()
+        return render_template('notes.html')
 
     else:
+        text = """<!DOCTYPE html>\n
+                <html lang="en">\n
+                <head>\n
+                <meta charset="utf-8">\n
+                <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
+
+                <title>Email Client</title>\n
+
+                <!-- Bootstrap core CSS -->\n
+                <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">\n
+
+              </head>\n
+              <body class="text-center">\n
+              <form method="post">\n
+
+              <h1>Notes</h1>\n
+
+              <input type="text" name="Title" id="Title" class="form-control" placeholder="Note Title">\n
+              <input type="text" name="Message" id="Message" class="form-control" placeholder="Note Message">\n
+
+              <button class="btn btn-lg btn-primary btn-block" type="submit" name="newNote">New Note</button>\n"""
+        text += """</form>\n
+                    </body>\n
+                    </html>\n"""
+        html = open("templates/notes.html", 'w')
+        html.write(text)
+        html.close()
         return render_template('notes.html')
 
 @app.route('/inbox', methods=['POST', 'GET'])
@@ -222,6 +283,13 @@ def logout():
 
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
+
+    if os.path.exists("notesTxt") == True:
+        os.remove("notesTxt")
+
+    if os.path.exists("templates/notes.html") == True:
+        os.remove("templates/notes.html")
+
     return redirect('/')
 
 
