@@ -29,12 +29,12 @@ error = ''
 
 
 def travisTest():  # sends email to itself to verify it works (for travis CI)
-    def encrypt(token: bytes, key: bytes) -> bytes:
-        return Fernet(key).encrypt(token)
 
-    print("Sending test email...")  # setting up email
+    print("Test 1: Login with  credentials.")  # setting up email
     userEmail = "group2emailclient@gmail.com"
     userPassword = "Group2Test"
+    
+    print("Test 2: Create email with sender, subject, and body.")
     newMessage = EmailMessage()
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
@@ -43,11 +43,12 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     time = str(time)
     newMessage.set_content("Group 2 email server has started at " + time)
 
+    print("Test 3: Send created email to itself.")
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:  # sending email
         server.login(userEmail, userPassword)
         server.send_message(newMessage)
 
-    print("Checking if test email was received...")
+    print("Test 4: Check if that exact previous email was recieved.")
     # create an IMAP4 class with SSL
     imap = imaplib.IMAP4_SSL("imap.gmail.com")
 
@@ -60,7 +61,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
     if time in body: # if email time is same as the time the test email was sent, test passes
-        print("Test confirmed. Closing app.")
+        print("All test succeeded.")
         exit()
 
 # Web Pages - first pages are commented, the rest follow similar functionality
