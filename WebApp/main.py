@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, flash # local hosting
+from flask import Flask, request, render_template, redirect # local hosting
 import smtplib, ssl  # server library
 import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
