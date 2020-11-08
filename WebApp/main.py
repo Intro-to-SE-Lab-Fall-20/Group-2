@@ -118,7 +118,6 @@ def direct():
 
 @app.route('/notes', methods=['POST', 'GET'])
 def notes():
-    notes = []
     if request.method == "POST":
         text = """<!DOCTYPE html>\n
                     <html lang="en">\n
@@ -145,15 +144,29 @@ def notes():
         if "newNote" in request.form:
             title = request.form.get('Title')
             message = request.form.get('Message')
-            newNote = [title, message]
-            notes.append(newNote)
+            notes = open("notes.txt", 'a')
+            notes.write(title)
+            notes.write("-")
+            notes.write(message)
+            notes.write("\n")
+            notes.close()
 
+            notes = open("notes.txt", 'r')
             index = 1
-            for note in notes:
-                text += "Note " + str(index) + ":" + "\n"
-                text += note[0] + "\n"
-                text += note[1] + "\n"
-                text += "\n\n"
+            for line in notes:
+                line = line.split("-")
+                text += "<br>"
+                text += "Note " + str(index) + ": "
+                text += line[0]
+                text += "</br>"
+                text += "<br>"
+                text += "Message - "
+                text += line[1]
+                text += "</br>"
+                text += "\n"
+                index += 1
+
+            notes.close()
 
         text += """</form>\n
                     </body>\n
@@ -291,8 +304,8 @@ def logout():
     if os.path.exists("imageUploads") == True:
         shutil.rmtree('imageUploads')
 
-    if os.path.exists("notesTxt") == True:
-        os.remove("notesTxt")
+    if os.path.exists("notes.txt") == True:
+        os.remove("notes.txt")
 
     if os.path.exists("templates/notes.html") == True:
         os.remove("templates/notes.html")
