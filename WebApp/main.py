@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect # local hosting
+from flask import Flask, request, render_template, redirect, session # local hosting
 import smtplib, ssl  # server library
 import imghdr  # to send certain attachments
 from email.message import EmailMessage  # creating a message to email
@@ -33,7 +33,7 @@ def travisTest():  # sends email to itself to verify it works (for travis CI)
     print("Test 1: Login with  credentials.")  # setting up email
     userEmail = "group2emailclient@gmail.com"
     userPassword = "Group2Test"
-    
+
     print("Test 2: Create email with sender, subject, and body.")
     newMessage = EmailMessage()
     newMessage['To'] = userEmail
@@ -118,6 +118,7 @@ def direct():
 
 @app.route('/notes', methods=['POST', 'GET'])
 def notes():
+    notes = []
     if request.method == "POST":
         text = """<!DOCTYPE html>\n
                     <html lang="en">\n
@@ -144,10 +145,15 @@ def notes():
         if "newNote" in request.form:
             title = request.form.get('Title')
             message = request.form.get('Message')
-            print(title)
-            print(message)
-            text += title
-            text += message
+            newNote = [title, message]
+            notes.append(newNote)
+
+            index = 1
+            for note in notes:
+                text += "Note " + str(index) + ":" + "\n"
+                text += note[0] + "\n"
+                text += note[1] + "\n"
+                text += "\n\n"
 
         text += """</form>\n
                     </body>\n
