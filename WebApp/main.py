@@ -17,6 +17,8 @@ import socket
 import email.utils
 from cryptography.fernet import Fernet
 import webbrowser
+import os.path
+from os import path
 
 
 app = Flask(__name__)
@@ -109,7 +111,7 @@ def login():
 def direct():
     if request.method == "POST":
         if "Notes" in request.form:
-            return redirect('/notes')
+            return notes()
         if "Email" in request.form:
             return redirect('/inbox')
 
@@ -118,94 +120,69 @@ def direct():
 
 @app.route('/notes', methods=['POST', 'GET'])
 def notes():
-    if request.method == "POST":
-        text = """<!DOCTYPE html>\n
-                    <html lang="en">\n
-                    <head>\n
-                    <meta charset="utf-8">\n
-                    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
-                    <title>Email Client</title>\n
+    text = """<!DOCTYPE html>\n
+            <html lang="en">\n
+            <head>\n
+            <meta charset="utf-8">\n
+            <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
+            <title>Email Client</title>\n
+            <script src=\"//cdn.ckeditor.com/4.14.1/basic/ckeditor.js\">\n</script>\n
+            <!-- Bootstrap core CSS -->\n
+            <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">\n
+          </head>\n
+          <body class="text-center">\n
+        <form action="logout">
+        <button class="btn btn-primary" style="right: 0;" type="submit">Logout</button>\n
+        </form>\n
+          <div style="height: 600px; width: 125px; position: absolute; left: 50px; top: 100px;">\n"""
 
-                    <!-- Bootstrap core CSS -->\n
-                    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">\n
+    if path.exists("notes.txt"):
+        more = True
+        body =''
+        with open("notes.txt", "r") as notes:
+            line = notes.readline()
+            while "eon" not in line:
+                print("this many times")
+                if "T-" in line:
+                    title = line[2:-1]
+                    line = notes.readline()
+                    body = line[2:-1]
+                    print("Title: ", title)
+                    print("Body: ", body)
+                    line = notes.readline()
+                    text += ("<button class=\"btn btn-lg btn-primary\" style=\"width: 125px; margin: 2.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\" onclick=\""
+                    "document.getElementById(\'Title\').value = \'" + title + "\';\n"
+                    "CKEDITOR.instances.Message.setData(\'" + body + "\');\n"
+                    "\">" + title + "</button>\n")
+                if "eon" in line:
+                    break
 
-                  </head>\n
-                  <body class="text-center">\n
-                  <form method="post">\n
+                
+                line = notes.readline()
 
-                  <h1>Notes</h1>\n
 
-                  <input type="text" name="Title" id="Title" class="form-control" placeholder="Note Title">\n
-                  <input type="text" name="Message" id="Message" class="form-control" placeholder="Note Message">\n
-
-                  <button class="btn btn-lg btn-primary btn-block" type="submit" name="newNote">New Note</button>\n"""
-
-        if "newNote" in request.form:
-            title = request.form.get('Title')
-            message = request.form.get('Message')
-            notes = open("notes.txt", 'a')
-            notes.write(title)
-            notes.write("-")
-            notes.write(message)
-            notes.write("\n")
-            notes.close()
-
-            notes = open("notes.txt", 'r')
-            index = 1
-            for line in notes:
-                line = line.split("-")
-                text += "<br>"
-                text += "Note " + str(index) + ": "
-                text += line[0]
-                text += "</br>"
-                text += "<br>"
-                text += "Message - "
-                text += line[1]
-                text += "</br>"
-                text += "\n"
-                index += 1
-
-            notes.close()
-
-        text += """</form>\n
-                    </body>\n
-                    </html>\n"""
-        html = open("templates/notes.html", 'w')
-        html.write(text)
-        html.close()
-        return render_template('notes.html')
-
-    else:
-        text = """<!DOCTYPE html>\n
-                <html lang="en">\n
-                <head>\n
-                <meta charset="utf-8">\n
-                <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
-                <title>Email Client</title>\n
-
-                <!-- Bootstrap core CSS -->\n
-                <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">\n
-
-              </head>\n
-              <body class="text-center">\n
-              <form method="post">\n
-
-              <h1>Notes</h1>\n
-
-              <input type="text" name="Title" id="Title" class="form-control" placeholder="Note Title">\n
-              <input type="text" name="Message" id="Message" class="form-control" placeholder="Note Message">\n
-
-              <button class="btn btn-lg btn-primary btn-block" type="submit" name="newNote">New Note</button>\n"""
-        text += """</form>\n
-                    </body>\n
-                    </html>\n"""
-        html = open("templates/notes.html", 'w')
-        html.write(text)
-        html.close()
-        html = open("notes.txt", 'w')
-        html.write("")
-        html.close()
-        return render_template('notes.html')
+    text += """
+          </div>
+          <form action="savenote" method="POST" onreset="CKEDITOR.instances.Message.setData('');">\n
+          <h1>Notes</h1>\n
+          <div style="display: inline-block;">\n
+          <input type="text" name="Title" id="Title" class="form-control" placeholder="Note Title" style="width: 600px;">\n
+          <textarea name="Message" id="Message" class="form-control" placeholder="Note Message" style="width: 600px; height: 700px;"></textarea>\n
+          <div style="display: block;">\n
+          <button class="btn btn-lg btn-primary" type="submit" name="save">Save Note</button>\n
+          <button class="btn btn-lg btn-primary" type="reset" name="newNote">New Note</button>\n
+          </div>\n
+          </div>\n
+          <script>\n
+          CKEDITOR.replace( 'Message', {height: 500, contentsCss: "body {font-size: 20px;}"});\n
+          </script>\n"""
+    text += """\t\t\t\t\t\t\t</form>\n
+                </body>\n
+                </html>\n"""
+    html = open("templates/notes.html", 'w')
+    html.write(text)
+    html.close()
+    return render_template('notes.html')
 
 @app.route('/inbox', methods=['POST', 'GET'])
 def inbox():
@@ -310,6 +287,7 @@ def logout():
 
     if os.path.exists("templates/notes.html") == True:
         os.remove("templates/notes.html")
+    print("loggin out for some reason")
 
     return redirect('/')
 
@@ -657,7 +635,6 @@ def loadInbox(search, index):
         "<script>\n")
 
     text += """
-
 if(sessionStorage.tab == 0){
 document.getElementById("rev").style.display = "none";
 }
@@ -672,34 +649,24 @@ if(sessionStorage.tab < sessionStorage.page){
 document.getElementById("page").style.display = "none";
 document.getElementById("tab").style.display = "inline-block";
 }
-
 function Page() {
-
   sessionStorage.page = Number(sessionStorage.page)+1;
   sessionStorage.tab = Number(sessionStorage.tab)+1;
-
 }
 function Rev(){
     
   sessionStorage.tab = Number(sessionStorage.tab)-1;
   window.history.back();
-
-
-
 }
 function Tab(){
   sessionStorage.tab = Number(sessionStorage.tab)+1;
   window.history.forward();
   
-
-
 }
 function Reset(){
     sessionStorage['page'] = 0;
-
     sessionStorage['tab'] = 0;
 }\n
-
 """
 
     text += (
@@ -765,6 +732,34 @@ def pageforward():
 
 def encrypt(token: bytes, key: bytes) -> bytes:
     return Fernet(key).encrypt(token)
+
+@app.route('/savenote', methods=['POST', 'GET'])
+def savenote():
+    if request.method == 'POST':
+        title = request.form.get('Title')
+        message = request.form.get('Message')
+        if path.exists("notes.txt"):
+            note = open("notes.txt", "r")
+            lines = note.readlines()
+            note.close()
+
+            note = open("notes.txt", "w")
+            for line in lines:
+                if line.strip("\n") != "eon":
+                    note.write(line)
+
+            note.close()
+
+
+        note = open("notes.txt", "a")
+        note.write("T-" + title)
+        note.write("\n")
+        note.write("B-" + message + "\n")
+        note.write("eon")
+        note.write("\n\n")
+        note.close()
+        return redirect('/notes')
+
 
 
 # starting web app
