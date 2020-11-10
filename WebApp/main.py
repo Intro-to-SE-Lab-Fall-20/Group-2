@@ -124,7 +124,6 @@ def notes():
                     <head>\n
                     <meta charset="utf-8">\n
                     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
-                    <form action="logout"><button class="btn btn-primary" style="right: 0;" type="submit">Logout</button>\n
                     <title>Email Client</title>\n
 
                     <!-- Bootstrap core CSS -->\n
@@ -168,9 +167,6 @@ def notes():
 
             notes.close()
 
-        if "logout" in request.form:
-            logout()
-
         text += """</form>\n
                     </body>\n
                     </html>\n"""
@@ -185,7 +181,6 @@ def notes():
                 <head>\n
                 <meta charset="utf-8">\n
                 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">\n
-                <form action="logout"><button class="btn btn-primary" style="right: 0;" type="submit">Logout</button>\n
                 <title>Email Client</title>\n
 
                 <!-- Bootstrap core CSS -->\n
@@ -206,6 +201,9 @@ def notes():
                     </html>\n"""
         html = open("templates/notes.html", 'w')
         html.write(text)
+        html.close()
+        html = open("notes.txt", 'w')
+        html.write("")
         html.close()
         return render_template('notes.html')
 
