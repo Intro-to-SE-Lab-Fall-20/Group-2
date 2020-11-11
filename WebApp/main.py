@@ -32,39 +32,72 @@ error = ''
 
 def travisTest():  # sends email to itself to verify it works (for travis CI)
 
-    print("Test 1: Login with  credentials.")  # setting up email
+    print("Test 1: Login with wrong credentials.")
+    userEmail = "wrongEmail@gmail.com"
+    userPassword = "wrongPassword1"
+    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:  # sending email
+        try:
+            server.login(userEmail, userPassword)
+            print("FAIL")
+        except:
+            print("PASS")
+
+    print("Test 2: Login with correct credentials.")  # setting up email
     userEmail = "group2emailclient@gmail.com"
     userPassword = "Group2Test"
 
-    print("Test 2: Create email with sender, subject, and body.")
+    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:  # sending email
+        try:
+            server.login(userEmail, userPassword)
+            print("PASS")
+        except:
+            print("FAIL")
+
+    print("Test 3: Create email with no sender, but includes a subject and body.")
+    newMessage = EmailMessage()
+    newMessage['To'] = ""
+    newMessage['Subject'] = "TRAVIS CI TEST"
+    newMessage['From'] = "Group 2"
+    time = datetime.now()
+    time = str(time)
+    newMessage.set_content("Verification time: " + time)
+    print("PASS")
+    print("Test 4: Send test 3 email to itself.")
+    with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:
+        try:
+            server.login(userEmail, userPassword)
+            server.send_message(newMessage)
+            print("FAIL")
+        except:
+            print("PASS")
+
+    print("Test 5: Create email with sender, subject, and body.")
     newMessage = EmailMessage()
     newMessage['To'] = userEmail
     newMessage['Subject'] = "TRAVIS CI TEST"
     newMessage['From'] = "Group 2"
     time = datetime.now()
     time = str(time)
-    newMessage.set_content("Group 2 email server has started at " + time)
-
-    print("Test 3: Send created email to itself.")
+    newMessage.set_content("Verification time: " + time)
+    print("PASS")
+    print("Test 6: Send test 5 email to itself.")
     with smtplib.SMTP_SSL("smtp.gmail.com", emailport, context=context) as server:  # sending email
         server.login(userEmail, userPassword)
         server.send_message(newMessage)
-
-    print("Test 4: Check if that exact previous email was recieved.")
+        print("PASS")
+    print("Test 7: Check if that exact previous email was recieved.")
     # create an IMAP4 class with SSL
     imap = imaplib.IMAP4_SSL("imap.gmail.com")
-
     imap.login(userEmail, userPassword)
     imap.select('Inbox')
     type, messages = imap.search(None, 'ALL')
     numEmails = len(messages[0].split())
-
     typ, data = imap.fetch(str(numEmails).encode(), '(RFC822)') # reads most recent email
     msg = email.message_from_string(data[0][1].decode('latin1'))
     body = msg.get_payload()
     if time in body: # if email time is same as the time the test email was sent, test passes
-        print("All test succeeded.")
-        exit()
+        print("PASS")
+    exit()
 
 # Web Pages - first pages are commented, the rest follow similar functionality
 @app.route('/', methods=['GET', 'POST'])
