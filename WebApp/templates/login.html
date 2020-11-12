@@ -11,6 +11,9 @@
 
     <link rel="stylesheet" type="text/css" href= "{{ url_for('static',filename='styles/styles.css') }}">
     <script>
+      history.pushState(null, null, window.location.href);
+      history.back();
+      window.onpopstate = () => history.forward();
       sessionStorage['page'] = 0;
       sessionStorage['tab'] = 0;
     </script>
